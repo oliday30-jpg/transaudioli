@@ -712,6 +712,23 @@ ipcMain.handle(
   }
 )
 
+// Ouvre le client mail par défaut avec le résumé pré-rempli (sujet + corps),
+// via mailto: — pas de pièce jointe possible par ce protocole (limite de
+// sécurité des navigateurs/OS, pas de notre app) : uniquement le texte du
+// résumé, pas le transcript complet ni le PDF. Pour joindre le PDF, il faut
+// l'exporter séparément (bouton ⬇ PDF) puis le glisser dans le mail ouvert.
+ipcMain.handle(
+  'meeting:export-email',
+  async (_event, { filePath, title }: { filePath: string; title: string }) => {
+    const raw = await readFile(filePath, 'utf-8')
+    const withoutTitleLine = raw.split('\n').slice(2).join('\n')
+    const summaryOnly = withoutTitleLine.split('\n---\n')[0].trim()
+
+    const mailto = `mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(summaryOnly)}`
+    await shell.openExternal(mailto)
+  }
+)
+
 async function deleteMeetingById(id: number): Promise<void> {
   const entry = getMeetings().find((m) => m.id === id)
   removeMeetingEntry(id)

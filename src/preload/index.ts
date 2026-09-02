@@ -158,6 +158,8 @@ const api = {
   deleteMeeting: (id: number): Promise<void> => ipcRenderer.invoke('meeting:delete', id),
   exportMeetingPdf: (filePath: string, title: string): Promise<string | null> =>
     ipcRenderer.invoke('meeting:export-pdf', { filePath, title }),
+  exportMeetingEmail: (filePath: string, title: string): Promise<void> =>
+    ipcRenderer.invoke('meeting:export-email', { filePath, title }),
   importMeetingTranscript: (transcript: string): Promise<{ filePath: string; id: number; title: string }> =>
     ipcRenderer.invoke('meeting:import', { transcript }),
   pickMeetingTextFile: (): Promise<string | null> => ipcRenderer.invoke('meeting:pick-text-file'),

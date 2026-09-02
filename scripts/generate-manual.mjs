@@ -433,9 +433,16 @@ const html = `<!doctype html>
 
   <h2><span class="icon">📄</span>Export PDF</h2>
   <p>Chaque réunion (depuis la liste, ou juste après l'avoir terminée) peut être exportée en PDF via le
-  bouton <b>⬇ PDF</b> — une boîte de dialogue Windows classique propose ensuite où l'enregistrer,
-  pratique pour l'archiver ou le partager en dehors de l'application (par exemple en l'important dans
-  Notability sur iPad).</p>
+  bouton <b>⬇ PDF</b> — une boîte de dialogue Windows classique propose ensuite où l'enregistrer.
+  Notability accepte l'import direct de PDF, y compris depuis sa <b>version web</b> (notability.com,
+  accessible depuis le même PC) — pas besoin de passer par l'iPad pour importer un compte-rendu.</p>
+
+  <h2><span class="icon">✉️</span>Export par email</h2>
+  <p>Le bouton <b>✉️</b> (à côté du PDF) ouvre le client mail par défaut avec le résumé (résumé,
+  décisions, actions à faire) déjà rempli en sujet et corps du message — pas le transcript complet, pour
+  rester lisible. Comme les liens <code>mailto:</code> ne permettent pas de joindre un fichier
+  automatiquement, si tu veux joindre le PDF, exporte-le d'abord séparément puis glisse-le dans le mail
+  ouvert.</p>
 
   <h2><span class="icon">⚠️</span>Limites connues</h2>
   <ul>
@@ -444,6 +451,8 @@ const html = `<!doctype html>
     <li>Enregistrer un appel (surtout externe, avec des clients ou partenaires) soulève des questions de
       confidentialité — consentement des participants, politique interne de l'entreprise — à vérifier
       avant un usage professionnel réel, indépendamment de ce que permet l'outil techniquement.</li>
+    <li>L'export email ne joint pas de fichier (limite du protocole <code>mailto:</code>, pas de l'app) et
+      peut tronquer un résumé exceptionnellement long selon le client mail utilisé.</li>
   </ul>
 </section>
 

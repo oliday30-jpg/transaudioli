@@ -881,6 +881,7 @@ async function stopMeeting(): Promise<void> {
     <div class="meeting-summary">${renderMarkdownLite(summary)}</div>
     <p class="field-hint">Enregistré : ${escapeHtml(savedPath)}</p>
     <button class="modify-link" id="meeting-export-now">⬇ Exporter en PDF</button>
+    <button class="modify-link" id="meeting-export-email-now">✉️ Envoyer par email</button>
   `
 
   meetingToggleBtn.disabled = false
@@ -891,6 +892,11 @@ async function stopMeeting(): Promise<void> {
   document.querySelector('#meeting-export-now')!.addEventListener('click', async () => {
     const savedPdfPath = await window.api.exportMeetingPdf(savedPath, savedTitle)
     if (savedPdfPath) statusEl.textContent = `PDF exporté : ${savedPdfPath} ✅`
+  })
+
+  document.querySelector('#meeting-export-email-now')!.addEventListener('click', async () => {
+    await window.api.exportMeetingEmail(savedPath, savedTitle)
+    statusEl.textContent = 'Client mail ouvert avec le résumé ✅'
   })
 
   if (document.getElementById('section-meeting-list')?.classList.contains('open')) {
@@ -960,7 +966,8 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
         </div>
         <div class="meeting-list-title-row">
           <input type="text" class="title meeting-title-input" value="${escapeHtml(entry.title)}" />
-          <button class="meeting-export-btn" data-id="${entry.id}" title="Exporter en PDF">⬇ PDF</button>
+          <button class="meeting-export-btn" data-id="${entry.id}" title="Exporter en PDF (compatible Notability)">⬇ PDF</button>
+          <button class="meeting-export-email-btn" data-id="${entry.id}" title="Envoyer le résumé par email">✉️</button>
           <button class="history-delete" data-id="${entry.id}" title="Supprimer">✕</button>
         </div>
         <div class="meeting-list-body" style="display: none"></div>
@@ -1120,7 +1127,7 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
     }
 
     titleRow.addEventListener('click', async (event) => {
-      if ((event.target as HTMLElement).closest('.history-delete, .meeting-export-btn')) return
+      if ((event.target as HTMLElement).closest('.history-delete, .meeting-export-btn, .meeting-export-email-btn')) return
       if (body.style.display !== 'none') {
         body.style.display = 'none'
         return
@@ -1160,6 +1167,17 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
       const savedPath = await window.api.exportMeetingPdf(entry.filePath, entry.title)
       button.textContent = originalLabel
       if (savedPath) statusEl.textContent = `PDF exporté : ${savedPath} ✅`
+    })
+  })
+
+  meetingListBodyEl.querySelectorAll<HTMLButtonElement>('.meeting-export-email-btn').forEach((button) => {
+    button.addEventListener('click', async (event) => {
+      event.stopPropagation()
+      const id = Number(button.dataset.id)
+      const entry = currentMeetings.find((m) => m.id === id)
+      if (!entry) return
+      await window.api.exportMeetingEmail(entry.filePath, entry.title)
+      statusEl.textContent = 'Client mail ouvert avec le résumé ✅'
     })
   })
 }
