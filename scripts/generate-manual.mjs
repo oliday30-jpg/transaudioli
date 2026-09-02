@@ -175,9 +175,11 @@ const html = `<!doctype html>
       <li>Notifications</li>
       <li>Historique des dictées</li>
       <li>Usage &amp; coûts</li>
-      <li>Clés API</li>
+      <li>Clés API &amp; sécurité</li>
+      <li>Verrouillage rapide</li>
       <li>Réglages généraux</li>
       <li>Module Réunion</li>
+      <li>Mises à jour automatiques</li>
       <li>Astuces</li>
       <li>Dépannage rapide</li>
     </ol>
@@ -310,21 +312,34 @@ const html = `<!doctype html>
 </section>
 
 <section>
-  <h1 class="section-title">12. Clés API</h1>
+  <h1 class="section-title">12. Clés API &amp; sécurité</h1>
   <p>Les clés des trois fournisseurs (Groq, Deepgram, OpenAI) se saisissent directement dans
-  l'application — plus besoin d'éditer un fichier de configuration à la main. Les clés sont stockées
-  localement sur le poste.</p>
+  l'application — plus besoin d'éditer un fichier de configuration à la main.</p>
+  <p>Elles sont stockées <b>chiffrées</b> sur le disque, via le mécanisme de sécurité natif de Windows
+  (<code>safeStorage</code>, lié au compte utilisateur de la session) — pas en texte brut. Un message
+  dans Réglages (🔒 Clés chiffrées sur ce PC) confirme que le chiffrement est actif.</p>
 </section>
 
 <section>
-  <h1 class="section-title">13. Réglages généraux</h1>
+  <h1 class="section-title">13. Verrouillage rapide</h1>
+  <p>Un bouton 🔓/🔒 dans la barre de titre (et le raccourci <span class="kbd">Ctrl+Alt+L</span>, modifiable)
+  bascule l'application en pause : tant que verrouillé, aucun raccourci clavier ni bouton ne peut démarrer
+  une dictée ou une réunion — utile pour être certain de ne rien déclencher par erreur pendant un appel
+  sensible.</p>
+  <p>Arrêter un enregistrement déjà en cours (ou l'annuler) reste toujours possible même verrouillé :
+  seul le <i>démarrage</i> est bloqué, jamais l'arrêt.</p>
+</section>
+
+<section>
+  <h1 class="section-title">14. Réglages généraux</h1>
   <p>Rassemble, en bas de l'application (menu volontairement peu consulté au quotidien) : les
   raccourcis clavier, l'ordre des fournisseurs, le vocabulaire, la durée de silence, le microphone, le
-  dossier de projet, la langue du module Réunion, la gestion des clés API et le démarrage automatique.</p>
+  dossier de projet, la langue du module Réunion, la durée de conservation des réunions, la gestion des
+  clés API, le démarrage automatique et les mises à jour.</p>
 </section>
 
 <section>
-  <h1 class="section-title">14. Module Réunion</h1>
+  <h1 class="section-title">15. Module Réunion</h1>
   <p>Capture une réunion de bout en bout : audio, transcription, identification des intervenants et
   résumé — pensé pour un appel Zoom/Teams sur ce PC, ou une discussion enregistrée via le micro.</p>
 
@@ -343,6 +358,13 @@ const html = `<!doctype html>
   1 »…) détecté automatiquement à partir des différences de voix. La précision de cette détection
   dépend de la qualité audio et de la distinction réelle entre les voix ; elle est plus fiable sur des
   voix humaines bien différenciées que sur des voix très proches.</p>
+  <p>Ces numéros peuvent être renommés a posteriori (voir « Édition &amp; renommage » plus bas) — pas
+  besoin de connaître les noms des intervenants avant de démarrer.</p>
+
+  <h2><span class="icon">⌨️</span>Raccourci clavier</h2>
+  <p>Le raccourci <span class="kbd">Ctrl+Alt+M</span> (modifiable dans Réglages) démarre ou arrête une
+  réunion depuis n'importe où, même fenêtre réduite dans la zone de notification — une petite
+  notification confirme le démarrage et la fin quand la fenêtre n'est pas visible.</p>
 
   <h2><span class="icon">🌐</span>Langue de la réunion</h2>
   <p>Un sélecteur Français / English dans la section Réunion détermine la langue utilisée pour la
@@ -357,25 +379,58 @@ const html = `<!doctype html>
 
   <h2><span class="icon">🗂️</span>Réunions enregistrées</h2>
   <p>Chaque réunion terminée est automatiquement sauvegardée et apparaît dans la section
-  <b>Réunions enregistrées</b> : titre généré automatiquement à partir du résumé, date, durée. Une
-  barre de recherche filtre par titre ; un clic déplie le résumé et le transcript complet ; un bouton
+  <b>Réunions enregistrées</b> : titre généré automatiquement à partir du résumé, date, durée. La
+  barre de recherche filtre non seulement sur le titre mais aussi sur le contenu complet — résumé et
+  transcript — pratique pour retrouver une réunion à partir d'un mot ou d'un nom mentionné dedans, même
+  s'il n'apparaît pas dans le titre. Un clic déplie le résumé et le transcript complet ; un bouton
   supprime la réunion (fichier compris).</p>
+
+  <h2><span class="icon">✏️</span>Édition &amp; renommage des intervenants</h2>
+  <p>Dans une réunion dépliée, un bouton <b>✏️ Modifier</b> permet de corriger le texte du résumé ou du
+  transcript après coup (une transcription mal comprise, par exemple). Si des « Intervenant N » sont
+  détectés, un petit formulaire propose de les renommer un par un — le remplacement est écrit
+  directement dans le fichier, donc visible aussi dans un futur export PDF.</p>
+
+  <h2><span class="icon">📥</span>Import de transcript externe</h2>
+  <p>Le bouton <b>📥 Importer un transcript</b> permet de coller (ou charger depuis un fichier .txt) un
+  texte déjà transcrit ailleurs — par exemple copié depuis la fonction de retranscription de Notability
+  sur iPad — pour lui appliquer le même résumé IA et le retrouver dans la liste, avec un badge « Importé ».
+  Ce n'est pas une intégration directe avec Notability (aucune passerelle automatique n'existe entre les
+  deux applications) : le texte doit être transféré manuellement (copier-coller, fichier).</p>
+
+  <h2><span class="icon">🗑️</span>Rétention automatique</h2>
+  <p>Un réglage dans Réglages (« Conserver les réunions ») supprime automatiquement les réunions plus
+  anciennes que le délai choisi (90 jours par défaut, 0 = jamais) — fichier et entrée dans la liste
+  disparaissent ensemble, au démarrage de l'application.</p>
 
   <h2><span class="icon">📄</span>Export PDF</h2>
   <p>Chaque réunion (depuis la liste, ou juste après l'avoir terminée) peut être exportée en PDF via le
   bouton <b>⬇ PDF</b> — une boîte de dialogue Windows classique propose ensuite où l'enregistrer,
-  pratique pour l'archiver ou le partager en dehors de l'application.</p>
+  pratique pour l'archiver ou le partager en dehors de l'application (par exemple en l'important dans
+  Notability sur iPad).</p>
 
   <h2><span class="icon">⚠️</span>Limites connues</h2>
   <ul>
-    <li>La diarisation identifie des <i>numéros</i> d'intervenants, pas leurs noms.</li>
-    <li>Aucune intégration directe avec d'autres outils de prise de notes (par exemple Notability sur
-      iPad) : ce sont des applications indépendantes, sans passerelle entre elles.</li>
+    <li>La diarisation identifie des <i>numéros</i> d'intervenants au départ — le renommage manuel comble
+      cette limite après coup, mais rien n'associe automatiquement un numéro à un nom.</li>
+    <li>Enregistrer un appel (surtout externe, avec des clients ou partenaires) soulève des questions de
+      confidentialité — consentement des participants, politique interne de l'entreprise — à vérifier
+      avant un usage professionnel réel, indépendamment de ce que permet l'outil techniquement.</li>
   </ul>
 </section>
 
 <section>
-  <h1 class="section-title">15. Astuces</h1>
+  <h1 class="section-title">16. Mises à jour automatiques</h1>
+  <p>L'application vérifie automatiquement, à chaque lancement, si une nouvelle version est disponible ;
+  si oui, elle la télécharge en arrière-plan et l'installe au prochain redémarrage de l'application (ou
+  immédiatement via le bouton <b>Redémarrer et installer</b> une fois le téléchargement terminé).</p>
+  <p>Dans Réglages, la section <b>Mises à jour</b> affiche la version actuelle et propose un bouton
+  <b>Vérifier maintenant</b> pour forcer une vérification immédiate plutôt que d'attendre le prochain
+  lancement.</p>
+</section>
+
+<section>
+  <h1 class="section-title">17. Astuces</h1>
   <ul>
     <li>Pour une dictée technique précise, ajouter les termes récurrents au vocabulaire plutôt que
       compter sur la reconnaissance seule.</li>
@@ -383,17 +438,20 @@ const html = `<!doctype html>
       régénère automatiquement, pas besoin de le refaire à chaque session.</li>
     <li>Pour une réunion en anglais, penser à basculer le sélecteur de langue <i>avant</i> de démarrer
       — la transcription en cours ne peut pas changer de langue rétroactivement.</li>
+    <li>Verrouiller (Ctrl+Alt+L) avant un appel où l'on ne veut surtout rien déclencher par erreur —
+      plus rapide que de fermer l'application.</li>
   </ul>
 </section>
 
 <section>
-  <h1 class="section-title">16. Dépannage rapide</h1>
+  <h1 class="section-title">18. Dépannage rapide</h1>
   <table>
     <tr><th>Symptôme</th><th>Piste</th></tr>
-    <tr><td>Un raccourci ne répond pas</td><td>Un autre logiciel l'utilise déjà — le changer dans Réglages (un raccourci en conflit y est signalé).</td></tr>
+    <tr><td>Un raccourci ne répond pas</td><td>Un autre logiciel l'utilise déjà — le changer dans Réglages (un raccourci en conflit y est signalé). Vérifier aussi que l'application n'est pas verrouillée (icône 🔒).</td></tr>
     <tr><td>« Clé API manquante »</td><td>Renseigner la clé du fournisseur concerné dans Réglages → Clés API.</td></tr>
     <tr><td>La réunion ne capte pas le son des autres participants</td><td>Vérifier que l'audio système est bien autorisé au niveau de Windows pour l'application.</td></tr>
     <tr><td>La transcription semble tronquée en anglais</td><td>Vérifier que le sélecteur de langue de la réunion était bien sur English avant de démarrer.</td></tr>
+    <tr><td>« Vérifier maintenant » signale une erreur</td><td>Normal en mode développement (npm run dev) ; sur une version installée, vérifier la connexion internet.</td></tr>
   </table>
 </section>
 
