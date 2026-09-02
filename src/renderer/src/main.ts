@@ -1029,11 +1029,22 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
               <button class="modify-link speaker-rename-apply">Appliquer</button>
             </div>`
 
+      const termCorrectionForm = `
+        <div class="speaker-rename">
+          <p class="field-hint">Corriger un terme mal reconnu partout dans cette réunion :</p>
+          <div class="speaker-rename-row">
+            <input type="text" class="term-correct-from" placeholder="Terme mal reconnu (ex. QuantiDAR)" />
+            <span>→</span>
+            <input type="text" class="term-correct-to" placeholder="Terme correct (ex. QuantStudio)" />
+          </div>
+          <button class="modify-link term-correct-apply">Remplacer partout</button>
+        </div>`
+
       body.innerHTML = `
         <div class="meeting-body-toolbar">
           <button class="modify-link meeting-edit-toggle">✏️ Modifier</button>
         </div>
-        ${renameForm}<div class="meeting-summary">${renderMarkdownLite(content)}</div>`
+        ${renameForm}${termCorrectionForm}<div class="meeting-summary">${renderMarkdownLite(content)}</div>`
 
       body.querySelector('.meeting-edit-toggle')?.addEventListener('click', renderEditMode)
 
@@ -1050,6 +1061,29 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
         await window.api.updateMeetingContent(filePath, rawContent)
         renderBody()
         statusEl.textContent = 'Intervenants renommés ✅'
+      })
+
+      body.querySelector('.term-correct-apply')?.addEventListener('click', async () => {
+        const fromEl = body.querySelector<HTMLInputElement>('.term-correct-from')!
+        const toEl = body.querySelector<HTMLInputElement>('.term-correct-to')!
+        const from = fromEl.value.trim()
+        const to = toEl.value.trim()
+        if (!from || !to) return
+
+        // Insensible à la casse (l'ASR n'est pas toujours cohérent sur la
+        // casse d'une même erreur d'un passage à l'autre), mais remplace
+        // toujours par la casse exacte tapée comme terme correct.
+        const pattern = new RegExp(from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi')
+        const occurrences = (rawContent.match(pattern) ?? []).length
+        if (occurrences === 0) {
+          statusEl.textContent = `« ${from} » introuvable dans cette réunion.`
+          return
+        }
+
+        rawContent = rawContent.replace(pattern, to)
+        await window.api.updateMeetingContent(filePath, rawContent)
+        renderBody()
+        statusEl.textContent = `${occurrences} occurrence(s) de « ${from} » remplacée(s) par « ${to} » ✅`
       })
     }
 

@@ -399,11 +399,15 @@ const html = `<!doctype html>
   s'il n'apparaît pas dans le titre. Un clic déplie le résumé et le transcript complet ; un bouton
   supprime la réunion (fichier compris).</p>
 
-  <h2><span class="icon">✏️</span>Édition &amp; renommage des intervenants</h2>
-  <p>Dans une réunion dépliée, un bouton <b>✏️ Modifier</b> permet de corriger le texte du résumé ou du
-  transcript après coup (une transcription mal comprise, par exemple). Si des « Intervenant N » sont
-  détectés, un petit formulaire propose de les renommer un par un — le remplacement est écrit
-  directement dans le fichier, donc visible aussi dans un futur export PDF.</p>
+  <h2><span class="icon">✏️</span>Édition, renommage &amp; correction de termes</h2>
+  <p>Dans une réunion dépliée, un bouton <b>✏️ Modifier</b> permet de corriger librement le texte du
+  résumé ou du transcript après coup. Si des « Intervenant N » sont détectés, un petit formulaire propose
+  de les renommer un par un.</p>
+  <p>Un second formulaire, <b>« Corriger un terme »</b>, permet de remplacer en un clic <i>toutes</i> les
+  occurrences d'un mot mal reconnu (par exemple « QuantiDAR » → « QuantStudio ») dans l'ensemble du
+  document — pas besoin de corriger chaque passage un par un. Insensible à la casse (une même erreur peut
+  apparaître différemment orthographiée d'un passage à l'autre). Tous ces remplacements sont écrits
+  directement dans le fichier, donc visibles aussi dans un futur export PDF.</p>
 
   <h2><span class="icon">📥</span>Import de transcript externe</h2>
   <p>Le bouton <b>📥 Importer un transcript</b> permet de coller (ou charger depuis un fichier .txt) un
