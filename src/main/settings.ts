@@ -70,7 +70,7 @@ const store = new Store<Settings>({
     usageSeconds: {},
     costRates: {},
     history: [],
-    meetingLanguage: 'fr',
+    meetingLanguage: 'en',
     meetings: [],
     meetingRetentionDays: 90
   }

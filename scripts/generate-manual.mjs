@@ -79,24 +79,28 @@ const html = `<!doctype html>
     margin: 3px 0;
   }
 
-  section {
-    break-before: page;
-    padding-top: 6px;
-  }
+  /* Le contenu s'enchaîne librement d'une page à l'autre (pas de saut de
+     page systématique par section) pour ne pas gâcher de place — seule la
+     toute première section démarre après la couverture. */
   section:first-of-type {
-    break-before: avoid;
+    break-before: page;
   }
   h1.section-title {
     color: var(--accent);
-    font-size: 19px;
+    font-size: 16px;
     border-bottom: 2px solid var(--accent-soft);
-    padding-bottom: 8px;
-    margin: 0 0 16px;
+    padding-bottom: 5px;
+    margin: 22px 0 10px;
+    break-after: avoid;
+  }
+  table, .hint {
+    break-inside: avoid;
   }
   h2 {
-    font-size: 14px;
+    font-size: 13px;
     color: var(--ink);
-    margin: 20px 0 6px;
+    margin: 12px 0 4px;
+    break-after: avoid;
   }
   h2 .icon {
     margin-right: 4px;
@@ -104,17 +108,18 @@ const html = `<!doctype html>
   h3 {
     font-size: 12.5px;
     color: var(--accent);
-    margin: 14px 0 4px;
+    margin: 10px 0 3px;
+    break-after: avoid;
   }
-  p { margin: 5px 0; }
-  ul, ol { margin: 5px 0; padding-left: 20px; }
-  li { margin: 2px 0; }
+  p { margin: 3px 0; }
+  ul, ol { margin: 3px 0; padding-left: 20px; }
+  li { margin: 1px 0; }
   .hint {
     background: var(--accent-soft);
     border-radius: 8px;
-    padding: 10px 14px;
+    padding: 8px 12px;
     font-size: 11.5px;
-    margin: 10px 0;
+    margin: 6px 0;
   }
   .hint b { color: var(--accent); }
   table {
