@@ -407,10 +407,14 @@ const html = `<!doctype html>
 
   <h2><span class="icon">📥</span>Import de transcript externe</h2>
   <p>Le bouton <b>📥 Importer un transcript</b> permet de coller (ou charger depuis un fichier .txt) un
-  texte déjà transcrit ailleurs — par exemple copié depuis la fonction de retranscription de Notability
-  sur iPad — pour lui appliquer le même résumé IA et le retrouver dans la liste, avec un badge « Importé ».
-  Ce n'est pas une intégration directe avec Notability (aucune passerelle automatique n'existe entre les
-  deux applications) : le texte doit être transféré manuellement (copier-coller, fichier).</p>
+  texte déjà transcrit ailleurs pour lui appliquer le même résumé IA et le retrouver dans la liste, avec
+  un badge « Importé ».</p>
+  <p>Le bouton <b>🎵 Importer un fichier audio</b> (juste en dessous) fait la même chose à partir d'un
+  fichier audio existant (.m4a, .mp3, .wav…) plutôt que d'un texte déjà transcrit — par exemple la piste
+  audio exportée d'une note Notability sur iPad. Le fichier est envoyé à la transcription avec
+  diarisation, comme pour une vraie réunion enregistrée dans l'app.</p>
+  <p>Dans les deux cas, ce n'est pas une intégration directe avec Notability (aucune passerelle
+  automatique n'existe entre les deux applications) : le fichier doit être transféré manuellement.</p>
 
   <h2><span class="icon">🗑️</span>Rétention automatique</h2>
   <p>Un réglage dans Réglages (« Conserver les réunions ») supprime automatiquement les réunions plus
