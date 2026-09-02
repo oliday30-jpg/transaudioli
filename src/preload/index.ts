@@ -9,6 +9,14 @@ interface HistoryEntry {
 
 type MeetingLanguage = 'fr' | 'en'
 
+type UpdateStatus =
+  | { state: 'checking' }
+  | { state: 'available'; version: string }
+  | { state: 'up-to-date' }
+  | { state: 'downloading'; percent: number }
+  | { state: 'downloaded'; version: string }
+  | { state: 'error'; message: string }
+
 interface SettingsSnapshot {
   shortcuts: Record<string, string>
   vocabulary: string
@@ -126,6 +134,7 @@ const api = {
   updateMeetingRetention: (days: number): Promise<void> =>
     ipcRenderer.invoke('settings:update-meeting-retention', days),
   listMeetings: (): Promise<MeetingIndexEntry[]> => ipcRenderer.invoke('meeting:list'),
+  searchMeetings: (query: string): Promise<MeetingIndexEntry[]> => ipcRenderer.invoke('meeting:search', query),
   openMeeting: (filePath: string): Promise<string> => ipcRenderer.invoke('meeting:open', filePath),
   updateMeetingContent: (filePath: string, content: string): Promise<void> =>
     ipcRenderer.invoke('meeting:update-content', { filePath, content }),
@@ -140,7 +149,13 @@ const api = {
   windowMinimize: (): void => ipcRenderer.send('window:minimize'),
   windowClose: (): void => ipcRenderer.send('window:close'),
   getAutoLaunch: (): Promise<boolean> => ipcRenderer.invoke('autolaunch:get'),
-  setAutoLaunch: (enabled: boolean): Promise<void> => ipcRenderer.invoke('autolaunch:set', enabled)
+  setAutoLaunch: (enabled: boolean): Promise<void> => ipcRenderer.invoke('autolaunch:set', enabled),
+  getAppVersion: (): Promise<string> => ipcRenderer.invoke('app:get-version'),
+  checkForUpdates: (): Promise<void> => ipcRenderer.invoke('app:check-for-updates'),
+  installUpdate: (): Promise<void> => ipcRenderer.invoke('app:install-update'),
+  onUpdateStatus: (callback: (status: UpdateStatus) => void): void => {
+    ipcRenderer.on('update:status', (_event, status: UpdateStatus) => callback(status))
+  }
 }
 
 contextBridge.exposeInMainWorld('api', api)

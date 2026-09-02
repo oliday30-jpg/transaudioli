@@ -10,10 +10,12 @@
     "build": "electron-vite build",
     "start": "node scripts/run.mjs preview",
     "dist": "electron-vite build && electron-builder",
+    "dist:publish": "electron-vite build && electron-builder --publish always",
     "manual": "node scripts/run-manual.mjs"
   },
   "dependencies": {
-    "electron-store": "^10.0.0"
+    "electron-store": "^10.0.0",
+    "electron-updater": "^6.8.9"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
@@ -52,6 +54,12 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "oliday30-jpg",
+      "repo": "transaudioli",
+      "private": true
     }
   }
 }

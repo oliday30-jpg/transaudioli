@@ -12,6 +12,7 @@ import {
   shell,
   type Tray
 } from 'electron'
+import { autoUpdater } from 'electron-updater'
 import { appendFile, mkdir, readFile, unlink, writeFile } from 'fs/promises'
 import { join } from 'path'
 import { processTranscript } from './cleanup'
@@ -44,6 +45,7 @@ import {
   setMeetingLanguage,
   setMeetingRetentionDays,
   setMicrophoneId,
+  type MeetingIndexEntry,
   setProjectPath,
   setProviderOrder,
   setShortcut,
@@ -162,6 +164,51 @@ const shortcutsRegistered: Record<ShortcutKey, boolean> = {
   cancel: false,
   meeting: false,
   lock: false
+}
+
+// Mise à jour automatique via un dépôt GitHub privé (releases publiées par
+// `npm run dist:publish`). Le dépôt étant privé, la vérification a besoin de
+// GH_TOKEN dans l'environnement — chargé comme les autres clés via le
+// stockage chiffré (secureKeys.ts), voir migrateAndLoadEncryptedKeys().
+autoUpdater.autoDownload = true
+autoUpdater.autoInstallOnAppQuit = true
+
+type UpdateStatus =
+  | { state: 'checking' }
+  | { state: 'available'; version: string }
+  | { state: 'up-to-date' }
+  | { state: 'downloading'; percent: number }
+  | { state: 'downloaded'; version: string }
+  | { state: 'error'; message: string }
+
+function sendUpdateStatus(status: UpdateStatus): void {
+  mainWindow?.webContents.send('update:status', status)
+}
+
+autoUpdater.on('checking-for-update', () => sendUpdateStatus({ state: 'checking' }))
+autoUpdater.on('update-available', (info) => {
+  sendUpdateStatus({ state: 'available', version: info.version })
+  notify(`⬇️ Mise à jour ${info.version} disponible, téléchargement en cours…`)
+})
+autoUpdater.on('update-not-available', () => sendUpdateStatus({ state: 'up-to-date' }))
+autoUpdater.on('download-progress', (progress) =>
+  sendUpdateStatus({ state: 'downloading', percent: Math.round(progress.percent) })
+)
+autoUpdater.on('update-downloaded', (info) => {
+  sendUpdateStatus({ state: 'downloaded', version: info.version })
+  notify(`✅ Mise à jour ${info.version} prête — redémarre l'app pour l'installer`)
+})
+autoUpdater.on('error', (error) => {
+  const message = error instanceof Error ? error.message : String(error)
+  console.warn('Vérification des mises à jour échouée :', message)
+  sendUpdateStatus({ state: 'error', message })
+})
+
+function checkForUpdates(): void {
+  if (!app.isPackaged) return
+  autoUpdater.checkForUpdates().catch((error) => {
+    console.warn('Vérification des mises à jour échouée :', error)
+  })
 }
 
 function createWindow(startHidden: boolean): void {
@@ -512,6 +559,31 @@ ipcMain.handle('meeting:open', async (_event, filePath: string) => {
   return readFile(filePath, 'utf-8')
 })
 
+// Recherche plein texte : au-delà du titre, regarde aussi dans le résumé et
+// le transcript complet de chaque réunion. Fait sur disque à chaque appel
+// plutôt que mis en cache — un usage personnel avec quelques dizaines de
+// réunions reste largement assez rapide pour ça, pas besoin d'index dédié.
+ipcMain.handle('meeting:search', async (_event, query: string) => {
+  const q = query.trim().toLowerCase()
+  if (!q) return getMeetings()
+
+  const matches: MeetingIndexEntry[] = []
+  for (const entry of getMeetings()) {
+    if (entry.title.toLowerCase().includes(q)) {
+      matches.push(entry)
+      continue
+    }
+    try {
+      const content = await readFile(entry.filePath, 'utf-8')
+      if (content.toLowerCase().includes(q)) matches.push(entry)
+    } catch {
+      // Fichier manquant/déplacé — ignoré pour la recherche, il reste
+      // visible normalement dans la liste complète.
+    }
+  }
+  return matches
+})
+
 // Réécrit le contenu d'une réunion déjà sauvegardée — utilisé pour renommer
 // les intervenants a posteriori (« Intervenant 0 » -> un vrai nom) : le
 // renderer recalcule le texte remplacé et fournit directement le contenu
@@ -617,6 +689,21 @@ ipcMain.handle('autolaunch:set', (_event, enabled: boolean) => {
   app.setLoginItemSettings({ openAtLogin: enabled })
 })
 
+ipcMain.handle('app:get-version', () => app.getVersion())
+
+ipcMain.handle('app:check-for-updates', () => {
+  if (!app.isPackaged) {
+    sendUpdateStatus({ state: 'error', message: 'Indisponible en mode développement (npm run dev).' })
+    return
+  }
+  checkForUpdates()
+})
+
+ipcMain.handle('app:install-update', () => {
+  isQuitting = true
+  autoUpdater.quitAndInstall()
+})
+
 app.whenReady().then(() => {
   migrateAndLoadEncryptedKeys(app.getPath('userData'))
   buildRouter()
@@ -625,6 +712,7 @@ app.whenReady().then(() => {
   const startHidden = app.getLoginItemSettings().wasOpenedAtLogin
   createWindow(startHidden)
   tray = createTray(mainWindow!, ICON_PATH)
+  checkForUpdates()
 
   // Nécessaire pour le mode Réunion (à venir) : fournit automatiquement une
   // source d'écran + l'audio système à getDisplayMedia() côté renderer, sans

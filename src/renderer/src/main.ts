@@ -533,6 +533,52 @@ autolaunchEl.addEventListener('change', () => {
 })
 
 // ---------------------------------------------------------------------------
+// Mises à jour automatiques
+// ---------------------------------------------------------------------------
+
+const appVersionEl = document.querySelector<HTMLSpanElement>('#app-version')!
+const updateStatusEl = document.querySelector<HTMLParagraphElement>('#update-status')!
+const installUpdateBtn = document.querySelector<HTMLButtonElement>('#install-update')!
+const checkUpdatesBtn = document.querySelector<HTMLButtonElement>('#check-updates')!
+
+window.api.getAppVersion().then((version) => {
+  appVersionEl.textContent = `Version ${version}`
+})
+
+checkUpdatesBtn.addEventListener('click', () => {
+  updateStatusEl.textContent = 'Vérification…'
+  window.api.checkForUpdates()
+})
+
+installUpdateBtn.addEventListener('click', () => {
+  window.api.installUpdate()
+})
+
+window.api.onUpdateStatus((status) => {
+  switch (status.state) {
+    case 'checking':
+      updateStatusEl.textContent = 'Vérification…'
+      break
+    case 'up-to-date':
+      updateStatusEl.textContent = 'À jour ✅'
+      break
+    case 'available':
+      updateStatusEl.textContent = `Version ${status.version} disponible — téléchargement…`
+      break
+    case 'downloading':
+      updateStatusEl.textContent = `Téléchargement… ${status.percent}%`
+      break
+    case 'downloaded':
+      updateStatusEl.textContent = `Version ${status.version} prête à installer.`
+      installUpdateBtn.style.display = 'inline-block'
+      break
+    case 'error':
+      updateStatusEl.textContent = `Erreur : ${status.message}`
+      break
+  }
+})
+
+// ---------------------------------------------------------------------------
 // Historique
 // ---------------------------------------------------------------------------
 
@@ -891,6 +937,28 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
     // déjà affichées via entry.title/date dans l'en-tête de la carte.
     const displayContent = (): string => rawContent.split('\n').slice(2).join('\n')
 
+    function renderEditMode(): void {
+      const content = displayContent()
+      body.innerHTML = `
+        <textarea class="meeting-edit-textarea">${escapeHtml(content)}</textarea>
+        <div class="meeting-edit-actions">
+          <button class="modify-link meeting-edit-cancel">Annuler</button>
+          <button class="save-btn meeting-edit-save">Enregistrer</button>
+        </div>`
+
+      body.querySelector('.meeting-edit-cancel')?.addEventListener('click', renderBody)
+      body.querySelector('.meeting-edit-save')?.addEventListener('click', async () => {
+        const textarea = body.querySelector<HTMLTextAreaElement>('.meeting-edit-textarea')!
+        // Conserve la ligne de titre "# Réunion — …" et la ligne vide qui la
+        // suit, jamais montrées à l'édition, puis recolle le reste modifié.
+        const titleLines = rawContent.split('\n').slice(0, 2).join('\n')
+        rawContent = `${titleLines}\n${textarea.value}`
+        await window.api.updateMeetingContent(filePath, rawContent)
+        renderBody()
+        statusEl.textContent = 'Réunion modifiée ✅'
+      })
+    }
+
     function renderBody(): void {
       const content = displayContent()
       const speakerNumbers = [
@@ -914,7 +982,13 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
               <button class="modify-link speaker-rename-apply">Appliquer</button>
             </div>`
 
-      body.innerHTML = `${renameForm}<div class="meeting-summary">${renderMarkdownLite(content)}</div>`
+      body.innerHTML = `
+        <div class="meeting-body-toolbar">
+          <button class="modify-link meeting-edit-toggle">✏️ Modifier</button>
+        </div>
+        ${renameForm}<div class="meeting-summary">${renderMarkdownLite(content)}</div>`
+
+      body.querySelector('.meeting-edit-toggle')?.addEventListener('click', renderEditMode)
 
       body.querySelector('.speaker-rename-apply')?.addEventListener('click', async () => {
         let updated = rawContent
@@ -958,7 +1032,7 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
       const id = Number(button.dataset.id)
       await window.api.deleteMeeting(id)
       currentMeetings = currentMeetings.filter((m) => m.id !== id)
-      renderMeetingList(filterMeetings(meetingListSearchEl.value))
+      refreshMeetingListView()
     })
   })
 
@@ -977,10 +1051,13 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
   })
 }
 
-function filterMeetings(query: string): MeetingIndexEntry[] {
-  const q = query.trim().toLowerCase()
-  if (!q) return currentMeetings
-  return currentMeetings.filter((entry) => entry.title.toLowerCase().includes(q))
+// Recherche plein texte (titre + résumé + transcript), déléguée au main
+// process qui lit les fichiers sur disque — voir meeting:search. Un léger
+// débounce évite de relire tous les fichiers à chaque frappe.
+async function refreshMeetingListView(): Promise<void> {
+  const query = meetingListSearchEl.value
+  const results = query.trim() ? await window.api.searchMeetings(query) : currentMeetings
+  renderMeetingList(results)
 }
 
 async function loadMeetingList(): Promise<void> {
@@ -989,8 +1066,10 @@ async function loadMeetingList(): Promise<void> {
   renderMeetingList(currentMeetings)
 }
 
+let meetingSearchDebounce: ReturnType<typeof setTimeout> | null = null
 meetingListSearchEl.addEventListener('input', () => {
-  renderMeetingList(filterMeetings(meetingListSearchEl.value))
+  if (meetingSearchDebounce) clearTimeout(meetingSearchDebounce)
+  meetingSearchDebounce = setTimeout(refreshMeetingListView, 250)
 })
 
 // ---------------------------------------------------------------------------

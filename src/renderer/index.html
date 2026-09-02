@@ -347,9 +347,36 @@
         justify-content: space-between;
         margin-top: 8px;
       }
+      .update-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
       .imported-badge {
         color: var(--muted);
         font-size: 10px;
+      }
+      .meeting-body-toolbar {
+        display: flex;
+        justify-content: flex-end;
+        margin-bottom: 4px;
+      }
+      .meeting-edit-textarea {
+        width: 100%;
+        min-height: 160px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px;
+        font-size: 12px;
+        font-family: inherit;
+        resize: vertical;
+      }
+      .meeting-edit-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 8px;
       }
       .speaker-rename {
         background: var(--accent-soft);
@@ -924,6 +951,18 @@
             <p class="field-hint">À modifier rarement — une fois configurées, tu n'y reviens que si une clé change.</p>
             <div id="api-key-rows"></div>
             <button class="save-btn" id="save-api-keys">Enregistrer les clés</button>
+          </div>
+
+          <div class="field-row">
+            <label style="font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px">
+              Mises à jour
+            </label>
+            <div class="update-row">
+              <span id="app-version" class="field-hint" style="margin: 0">Version —</span>
+              <button class="modify-link" id="check-updates">Vérifier maintenant</button>
+            </div>
+            <p class="field-hint" id="update-status"></p>
+            <button class="save-btn" id="install-update" style="display: none">Redémarrer et installer</button>
           </div>
         </div>
       </div>
