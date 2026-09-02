@@ -1,0 +1,934 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>TransAudiOli</title>
+    <style>
+      :root {
+        --bg: #f3f6f2;
+        --card: #ffffff;
+        --ink: #1d2420;
+        --muted: #6b756e;
+        --accent: #c4602a;
+        --accent-soft: #f6e6da;
+        --line: #e3e8e1;
+        --danger: #b3401e;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+      }
+      body {
+        font-family:
+          -apple-system,
+          'Segoe UI',
+          sans-serif;
+        background: var(--bg);
+        color: var(--ink);
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      .titlebar {
+        -webkit-app-region: drag;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 8px 0 16px;
+        flex: none;
+      }
+      .titlebar .name {
+        font-weight: 600;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .titlebar .controls {
+        -webkit-app-region: no-drag;
+        display: flex;
+        gap: 4px;
+      }
+      .titlebar button {
+        width: 28px;
+        height: 28px;
+        border: none;
+        background: transparent;
+        border-radius: 6px;
+        cursor: pointer;
+        color: var(--muted);
+        font-size: 14px;
+      }
+      .titlebar button:hover {
+        background: var(--line);
+      }
+      .titlebar button.close:hover {
+        background: #e5484d;
+        color: white;
+      }
+
+      .content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 4px 20px 20px;
+      }
+
+      h1 {
+        font-size: 22px;
+        margin: 4px 0 16px;
+      }
+
+      .status-card {
+        background: var(--card);
+        border-radius: 14px;
+        padding: 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+      }
+      .status-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .level-meter {
+        height: 5px;
+        border-radius: 999px;
+        background: var(--line);
+        overflow: hidden;
+      }
+      .level-fill {
+        height: 100%;
+        width: 0%;
+        background: var(--accent);
+        border-radius: 999px;
+        transition: width 0.08s linear;
+      }
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--muted);
+        flex: none;
+      }
+      .dot.recording {
+        background: var(--danger);
+        animation: pulse 1s infinite;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.3;
+        }
+      }
+      #status {
+        font-size: 14px;
+        line-height: 1.4;
+        margin: 0;
+      }
+
+      .modes {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        margin-top: 12px;
+      }
+      .modes button {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px 6px;
+        font-size: 12px;
+        cursor: pointer;
+        color: var(--ink);
+      }
+      .modes button:hover {
+        border-color: var(--accent);
+      }
+      .modes button small {
+        display: block;
+        color: var(--muted);
+        margin-top: 2px;
+      }
+      .mode-hint {
+        margin: 8px 2px 0;
+        font-size: 11.5px;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+      .mode-hint b {
+        color: var(--ink);
+      }
+      .field-hint {
+        font-size: 11px;
+        color: var(--muted);
+        margin: -2px 0 6px;
+        line-height: 1.4;
+      }
+
+      .section {
+        margin-top: 16px;
+      }
+      .section-toggle {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: none;
+        border: none;
+        padding: 10px 2px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        color: var(--ink);
+      }
+      .section-toggle .chevron {
+        transition: transform 0.15s;
+        color: var(--muted);
+      }
+      .section.open .chevron {
+        transform: rotate(90deg);
+      }
+      .section-body {
+        display: none;
+        padding-bottom: 8px;
+      }
+      .section.open .section-body {
+        display: block;
+      }
+
+      .api-key-row {
+        margin-bottom: 8px;
+      }
+      .api-key-row .row-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 4px;
+      }
+      .api-key-row .row-top strong {
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .api-key-row a {
+        font-size: 11px;
+        color: var(--accent);
+        text-decoration: none;
+      }
+      .api-key-row a:hover {
+        text-decoration: underline;
+      }
+      .api-key-row input {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 7px 9px;
+        font-size: 12px;
+        font-family: inherit;
+      }
+      .key-status {
+        font-size: 10.5px;
+        margin-top: 3px;
+        display: block;
+      }
+      .key-status.ok {
+        color: #2f7a4d;
+      }
+      .key-status.missing {
+        color: var(--muted);
+      }
+
+      .project-path-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      #project-path-display {
+        font-size: 11px;
+        color: var(--muted);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 220px;
+      }
+
+      .voice-commands-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .voice-command-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .voice-command-item .kbd {
+        font-style: italic;
+        flex: none;
+      }
+      .voice-command-item span:last-child {
+        font-size: 11px;
+        color: var(--muted);
+      }
+
+      .meeting-controls {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 8px;
+      }
+      .meeting-timer {
+        font-family: ui-monospace, monospace;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      #meeting-language {
+        margin-left: auto;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 5px 7px;
+        font-size: 11.5px;
+        font-family: inherit;
+        background: var(--card);
+        color: var(--ink);
+      }
+      .history-item.meeting-list-item {
+        cursor: default;
+      }
+      .meeting-list-item .meta {
+        color: var(--muted);
+        font-size: 10.5px;
+        margin-bottom: 3px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .meeting-list-item .meeting-list-title-row {
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+      }
+      .meeting-list-item .meeting-list-title-row span.title {
+        flex: 1;
+      }
+      .meeting-list-body {
+        margin-top: 8px;
+        border-top: 1px solid var(--line);
+        padding-top: 8px;
+      }
+      .meeting-import {
+        margin-bottom: 12px;
+      }
+      .meeting-import textarea {
+        width: 100%;
+        min-height: 90px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px;
+        font-size: 12px;
+        font-family: inherit;
+        resize: vertical;
+        margin-top: 8px;
+      }
+      .meeting-import-actions {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 8px;
+      }
+      .imported-badge {
+        color: var(--muted);
+        font-size: 10px;
+      }
+      .speaker-rename {
+        background: var(--accent-soft);
+        border-radius: 8px;
+        padding: 8px 10px;
+        margin-bottom: 10px;
+      }
+      .speaker-rename-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11.5px;
+        margin: 4px 0;
+      }
+      .speaker-rename-row span {
+        flex: none;
+        color: var(--muted);
+      }
+      .speaker-rename-row input {
+        flex: 1;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 4px 7px;
+        font-size: 11.5px;
+        font-family: inherit;
+      }
+      .speaker-rename-apply {
+        margin-top: 4px;
+      }
+      .meeting-export-btn {
+        border: none;
+        background: none;
+        color: var(--accent);
+        cursor: pointer;
+        font-size: 13px;
+        line-height: 1;
+        padding: 0 6px 0 4px;
+        flex: none;
+      }
+      .meeting-export-btn:hover {
+        opacity: 0.7;
+      }
+      .meeting-live {
+        margin-top: 12px;
+        max-height: 220px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .meeting-utterance {
+        background: var(--card);
+        border-radius: 8px;
+        padding: 7px 10px;
+        font-size: 12px;
+      }
+      .meeting-utterance .speaker-label {
+        font-weight: 600;
+        color: var(--accent);
+        margin-right: 6px;
+      }
+      .meeting-error {
+        color: var(--danger);
+        font-size: 11.5px;
+        padding: 4px 2px;
+      }
+      .meeting-result {
+        margin-top: 14px;
+        border-top: 1px solid var(--line);
+        padding-top: 12px;
+      }
+      .meeting-summary h4 {
+        font-size: 13px;
+        margin: 12px 0 4px;
+        color: var(--accent);
+      }
+      .meeting-summary h4:first-child {
+        margin-top: 0;
+      }
+      .meeting-summary p {
+        font-size: 12.5px;
+        margin: 4px 0;
+      }
+      .meeting-summary ul {
+        margin: 4px 0;
+        padding-left: 18px;
+        font-size: 12.5px;
+      }
+      .meeting-summary li {
+        margin: 2px 0;
+      }
+
+      .usage-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: var(--card);
+        border-radius: 10px;
+        padding: 10px 12px;
+        margin-bottom: 6px;
+        font-size: 12px;
+        gap: 10px;
+      }
+      .usage-row .usage-label {
+        font-weight: 600;
+        text-transform: capitalize;
+        flex: none;
+      }
+      .usage-row .usage-minutes {
+        color: var(--muted);
+        flex: 1;
+      }
+      .usage-row .usage-rate {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .usage-row .usage-rate input {
+        width: 52px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 3px 5px;
+        font-size: 11px;
+        font-family: inherit;
+      }
+
+      .provider-order-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: var(--card);
+        border-radius: 10px;
+        padding: 8px 12px;
+        margin-bottom: 6px;
+        font-size: 12.5px;
+      }
+      .provider-order-row .rank {
+        font-family: ui-monospace, monospace;
+        color: var(--accent);
+        font-weight: 600;
+        margin-right: 8px;
+      }
+      .provider-order-row .order-buttons {
+        display: flex;
+        gap: 2px;
+      }
+      .provider-order-row .order-buttons button {
+        border: 1px solid var(--line);
+        background: var(--card);
+        border-radius: 6px;
+        width: 22px;
+        height: 22px;
+        cursor: pointer;
+        color: var(--ink);
+        font-size: 11px;
+        line-height: 1;
+      }
+      .provider-order-row .order-buttons button:disabled {
+        opacity: 0.3;
+        cursor: default;
+      }
+      .provider-order-row .order-buttons button:not(:disabled):hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+
+      .shortcut-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: var(--card);
+        border-radius: 10px;
+        padding: 10px 12px;
+        margin-bottom: 8px;
+      }
+      .shortcut-row .label {
+        font-size: 13px;
+        text-transform: capitalize;
+      }
+      .shortcut-row .keys {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .kbd {
+        font-family: ui-monospace, monospace;
+        font-size: 11px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        padding: 3px 7px;
+        border-radius: 6px;
+        white-space: nowrap;
+      }
+      .modify-link {
+        border: none;
+        background: none;
+        color: var(--accent);
+        font-size: 12px;
+        cursor: pointer;
+        padding: 0;
+      }
+
+      textarea#vocabulary {
+        width: 100%;
+        min-height: 70px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px;
+        font-size: 12px;
+        font-family: inherit;
+        resize: vertical;
+      }
+      .save-btn {
+        margin-top: 6px;
+        border: none;
+        background: var(--accent);
+        color: white;
+        border-radius: 8px;
+        padding: 6px 14px;
+        font-size: 12px;
+        cursor: pointer;
+      }
+
+      .field-row {
+        margin-top: 14px;
+      }
+      .field-row input[type='number'] {
+        width: 90px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 6px 8px;
+        font-size: 12px;
+        font-family: inherit;
+      }
+      .field-row select {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 7px 9px;
+        font-size: 12px;
+        font-family: inherit;
+        background: var(--card);
+        color: var(--ink);
+      }
+
+      .toggle-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 14px;
+        gap: 12px;
+      }
+      .toggle-row .label {
+        font-size: 13px;
+      }
+      .toggle-row small {
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .switch {
+        position: relative;
+        width: 38px;
+        height: 22px;
+        flex: none;
+      }
+      .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+      .slider {
+        position: absolute;
+        inset: 0;
+        background: var(--line);
+        border-radius: 999px;
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      .slider::before {
+        content: '';
+        position: absolute;
+        width: 16px;
+        height: 16px;
+        left: 3px;
+        top: 3px;
+        background: white;
+        border-radius: 50%;
+        transition: transform 0.15s;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+      }
+      .switch input:checked + .slider {
+        background: var(--accent);
+      }
+      .switch input:checked + .slider::before {
+        transform: translateX(16px);
+      }
+
+      .history-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+      .history-toolbar input[type='search'] {
+        flex: 1;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 7px 9px;
+        font-size: 12px;
+        font-family: inherit;
+      }
+      .history-toolbar .modify-link {
+        flex: none;
+        white-space: nowrap;
+      }
+
+      .history-item {
+        background: var(--card);
+        border-radius: 10px;
+        padding: 10px 12px;
+        margin-bottom: 6px;
+        cursor: pointer;
+        font-size: 12px;
+      }
+      .history-delete {
+        border: none;
+        background: none;
+        color: var(--muted);
+        cursor: pointer;
+        font-size: 13px;
+        line-height: 1;
+        padding: 0 0 0 4px;
+        flex: none;
+      }
+      .history-delete:hover {
+        color: var(--danger);
+      }
+      .history-item:hover {
+        outline: 1px solid var(--accent);
+      }
+      .history-item .meta {
+        color: var(--muted);
+        font-size: 10.5px;
+        margin-bottom: 3px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .provider-badge {
+        margin-left: auto;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+        font-size: 9.5px;
+        padding: 1px 6px;
+        border-radius: 999px;
+        background: var(--line);
+        color: var(--muted);
+      }
+      .provider-badge.fallback {
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-weight: 600;
+      }
+      .empty {
+        color: var(--muted);
+        font-size: 12px;
+        padding: 8px 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="titlebar">
+      <span class="name">TransAudiOli</span>
+      <div class="controls">
+        <button id="lock-toggle" title="Verrouiller (empêche toute dictée/réunion accidentelle)">🔓</button>
+        <button id="minimize" title="Réduire">—</button>
+        <button id="close" class="close" title="Fermer">✕</button>
+      </div>
+    </div>
+
+    <div class="content">
+      <h1>TransAudiOli</h1>
+
+      <div class="status-card">
+        <div class="status-row">
+          <span class="dot" id="dot"></span>
+          <p id="status">Prêt.</p>
+        </div>
+        <div class="level-meter"><div class="level-fill" id="level-fill"></div></div>
+      </div>
+
+      <div class="modes">
+        <button data-mode="raw">Brut<small>Ctrl+R</small></button>
+        <button data-mode="clean">Nettoyé<small id="clean-hint"></small></button>
+        <button data-mode="rewrite">Réécrit<small id="rewrite-hint"></small></button>
+      </div>
+      <p class="mode-hint">
+        💡 En mode <b>Réécrit</b>, commence ta phrase par « corrige le bug », « explique », « refactorise » ou
+        « nouvelle fonctionnalité » pour un résultat plus précis.
+        <a href="#" id="voice-commands-more" style="color: var(--accent); text-decoration: none;">Détails</a>
+      </p>
+
+      <div class="section" id="section-meeting">
+        <button class="section-toggle" data-toggle="section-meeting">
+          <span>🗓️ Réunion</span><span class="chevron">›</span>
+        </button>
+        <div class="section-body">
+          <p class="field-hint">
+            Capture le micro et l'audio système ensemble (utile pour un appel Zoom/Teams), sépare les
+            intervenants, et génère un résumé avec décisions et actions à faire à la fin. Raccourci :
+            <span class="kbd" id="meeting-shortcut-hint"></span>
+          </p>
+          <div class="meeting-controls">
+            <button id="meeting-toggle" class="save-btn">Démarrer la réunion</button>
+            <span id="meeting-timer" class="meeting-timer"></span>
+            <select id="meeting-language" title="Langue de la réunion">
+              <option value="fr">🇫🇷 Français</option>
+              <option value="en">🇬🇧 English</option>
+            </select>
+          </div>
+          <div id="meeting-live" class="meeting-live"></div>
+          <div id="meeting-result" class="meeting-result" style="display: none"></div>
+        </div>
+      </div>
+
+      <div class="section" id="section-meeting-list">
+        <button class="section-toggle" data-toggle="section-meeting-list">
+          <span id="meeting-list-title">🗂️ Réunions enregistrées</span><span class="chevron">›</span>
+        </button>
+        <div class="section-body">
+          <div class="meeting-import">
+            <button class="modify-link" id="meeting-import-toggle">📥 Importer un transcript (ex. Notability)</button>
+            <div id="meeting-import-panel" style="display: none">
+              <p class="field-hint">
+                Colle ici le texte d'une transcription obtenue ailleurs (par ex. copiée depuis la
+                fonction de retranscription de Notability) pour générer un résumé et l'ajouter à cette
+                liste.
+              </p>
+              <textarea id="meeting-import-text" placeholder="Colle le transcript ici…"></textarea>
+              <div class="meeting-import-actions">
+                <button class="modify-link" id="meeting-import-file">Charger un fichier .txt…</button>
+                <button class="save-btn" id="meeting-import-submit">Résumer et enregistrer</button>
+              </div>
+            </div>
+          </div>
+          <div class="history-toolbar">
+            <input type="search" id="meeting-list-search" placeholder="Rechercher une réunion…" />
+          </div>
+          <div id="meeting-list-body">
+            <div class="empty">Ouvre pour charger…</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section" id="section-history">
+        <button class="section-toggle" data-toggle="section-history">
+          <span id="history-title">🕓 Historique</span><span class="chevron">›</span>
+        </button>
+        <div class="section-body">
+          <div class="history-toolbar">
+            <input type="search" id="history-search" placeholder="Rechercher dans l'historique…" />
+            <button class="modify-link" id="clear-history">Vider</button>
+          </div>
+          <div id="history-body">
+            <div class="empty">Ouvre pour charger…</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section" id="section-usage">
+        <button class="section-toggle" data-toggle="section-usage">
+          <span>📊 Usage</span><span class="chevron">›</span>
+        </button>
+        <div class="section-body" id="usage-body">
+          <div class="empty">Ouvre pour charger…</div>
+        </div>
+      </div>
+
+      <div class="section" id="section-settings">
+        <button class="section-toggle" data-toggle="section-settings">
+          <span>⚙️ Réglages</span><span class="chevron">›</span>
+        </button>
+        <div class="section-body">
+          <div class="field-row" style="margin-top: 0">
+            <label style="font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px">
+              Ordre des fournisseurs
+            </label>
+            <p class="field-hint">Essayés dans cet ordre ; bascule automatique si l'un échoue.</p>
+            <div id="provider-order-rows"></div>
+          </div>
+
+          <div id="shortcut-rows"></div>
+          <div style="margin-top: 10px">
+            <label style="font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px">
+              Vocabulaire technique
+            </label>
+            <p class="field-hint">
+              Mots que le transcripteur reconnaît mieux à l'oral (noms d'outils, termes techniques). Ajoute ou
+              retire librement, séparés par des virgules.
+            </p>
+            <textarea id="vocabulary"></textarea>
+            <button class="save-btn" id="save-vocabulary">Enregistrer</button>
+          </div>
+          <div class="field-row">
+            <label style="font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px">
+              Dossier de projet
+            </label>
+            <p class="field-hint">
+              Choisis un dossier une fois : ses dépendances (package.json) s'ajoutent automatiquement au
+              vocabulaire ci-dessus. À refaire si tu changes de projet.
+            </p>
+            <div class="project-path-row">
+              <span id="project-path-display">Aucun</span>
+              <button class="modify-link" id="choose-project">Parcourir…</button>
+              <button class="modify-link" id="clear-project" style="display: none">Retirer</button>
+            </div>
+          </div>
+          <div class="field-row" id="voice-commands-section">
+            <label style="font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px">
+              Commandes vocales
+            </label>
+            <p class="field-hint">
+              Uniquement en mode <strong class="kbd" style="font-style: normal">Réécrit (Ctrl+Alt+E)</strong> —
+              commence ta phrase par un de ces mots pour un résultat plus précis qu'une reformulation générique :
+            </p>
+            <div class="voice-commands-list">
+              <div class="voice-command-item"><span class="kbd">"corrige le bug…"</span><span>diagnostic + solution</span></div>
+              <div class="voice-command-item"><span class="kbd">"explique…"</span><span>explication claire</span></div>
+              <div class="voice-command-item"><span class="kbd">"refactorise…"</span><span>améliore sans changer le comportement</span></div>
+              <div class="voice-command-item"><span class="kbd">"nouvelle fonctionnalité…"</span><span>décrit un ajout à développer</span></div>
+            </div>
+          </div>
+          <div class="field-row">
+            <label style="font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px">
+              Microphone
+            </label>
+            <select id="microphone-select"></select>
+          </div>
+          <div class="field-row">
+            <label style="font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px">
+              Silence avant arrêt automatique (secondes — 0 = désactivé)
+            </label>
+            <input type="number" id="silence-duration" min="0" max="10" step="0.5" />
+          </div>
+          <div class="field-row">
+            <label style="font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px">
+              Conserver les réunions (jours — 0 = pour toujours)
+            </label>
+            <p class="field-hint">
+              Passé ce délai, les réunions enregistrées (fichier et résumé) sont supprimées
+              automatiquement au démarrage de l'application.
+            </p>
+            <input type="number" id="meeting-retention" min="0" step="1" />
+          </div>
+          <div class="toggle-row">
+            <div>
+              <div class="label">Démarrage automatique</div>
+              <small>Lance TransAudiOli (réduit) à l'ouverture de session Windows</small>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="autolaunch" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="field-row">
+            <label style="font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px">
+              Clés API
+            </label>
+            <p class="field-hint">À modifier rarement — une fois configurées, tu n'y reviens que si une clé change.</p>
+            <div id="api-key-rows"></div>
+            <button class="save-btn" id="save-api-keys">Enregistrer les clés</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
