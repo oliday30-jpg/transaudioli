@@ -279,8 +279,17 @@ const html = `<!doctype html>
 
 <section>
   <h1 class="section-title">7. Vocabulaire technique</h1>
-  <p>Une liste de termes techniques (noms d'outils, jargon) peut être fournie pour améliorer la
-  reconnaissance de mots inhabituels — modifiable librement dans <b>Réglages</b>.</p>
+  <p>Des termes techniques (noms d'outils, d'instruments, jargon métier) peuvent être fournis pour
+  améliorer la reconnaissance de mots inhabituels — modifiables librement dans <b>Réglages</b>.</p>
+  <h2>Plusieurs listes indépendantes</h2>
+  <p>Le vocabulaire se répartit en <b>listes nommées séparées</b> (par exemple « VS Code » pour le
+  développement, « ThermoFisher » pour les instruments de laboratoire) plutôt qu'un seul bloc de texte —
+  chaque liste a son propre nom, son propre contenu, et une case à cocher pour l'activer ou la
+  désactiver individuellement. Toutes les listes cochées contribuent ensemble à la reconnaissance.</p>
+  <p>Pour créer une nouvelle liste : dans Réglages → Vocabulaire technique → <b>+ Nouvelle liste</b>,
+  puis renommer la carte et y coller les termes (séparés par des virgules). Chaque champ s'enregistre
+  automatiquement dès qu'on en sort (pas de bouton "Enregistrer" à chercher). La case à cocher permet de
+  désactiver temporairement une liste sans la supprimer ; le ✕ la supprime définitivement.</p>
   <h2>Vocabulaire de projet (automatique)</h2>
   <p>En sélectionnant un dossier de projet VS Code, l'application lit son <code>package.json</code> et
   ajoute automatiquement les noms de ses dépendances au vocabulaire — utile pour que la dictée
