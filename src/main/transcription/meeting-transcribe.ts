@@ -26,6 +26,7 @@ export async function transcribeMeetingChunk(
   audio: Buffer,
   apiKey: string,
   language: string = 'fr',
+  vocabulary?: string,
   mimeType: string = 'audio/webm',
   signal?: AbortSignal
 ): Promise<DiarizedSegment[]> {
@@ -40,6 +41,11 @@ export async function transcribeMeetingChunk(
     diarize: 'true',
     utterances: 'true'
   })
+  if (vocabulary) {
+    for (const term of vocabulary.split(',').map((t) => t.trim()).filter(Boolean)) {
+      params.append('keyterm', term)
+    }
+  }
 
   const response = await fetch(`https://api.deepgram.com/v1/listen?${params.toString()}`, {
     method: 'POST',

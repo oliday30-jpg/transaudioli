@@ -492,7 +492,8 @@ ipcMain.on('meeting:chunk', async (event, buffer: ArrayBuffer) => {
     const segments = await transcribeMeetingChunk(
       Buffer.from(buffer),
       process.env.DEEPGRAM_API_KEY ?? '',
-      getMeetingLanguage()
+      getMeetingLanguage(),
+      getEffectiveListVocabulary()
     )
     event.sender.send('meeting:chunk-transcribed', segments)
   } catch (error) {
@@ -589,7 +590,13 @@ ipcMain.handle('meeting:import-audio', async () => {
   const mimeType = guessAudioMimeType(filePath)
   const language = getMeetingLanguage()
 
-  const segments = await transcribeMeetingChunk(audio, process.env.DEEPGRAM_API_KEY ?? '', language, mimeType)
+  const segments = await transcribeMeetingChunk(
+    audio,
+    process.env.DEEPGRAM_API_KEY ?? '',
+    language,
+    getEffectiveListVocabulary(),
+    mimeType
+  )
   const transcript = segments.map((s) => `Intervenant ${s.speaker} : ${s.text}`).join('\n')
   const summary = await summarizeMeeting(transcript, process.env.GROQ_API_KEY, language)
   return persistMeeting(transcript, summary, 0, true)
