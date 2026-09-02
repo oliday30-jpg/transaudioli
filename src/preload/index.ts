@@ -157,6 +157,8 @@ const api = {
   importMeetingTranscript: (transcript: string): Promise<{ filePath: string; id: number; title: string }> =>
     ipcRenderer.invoke('meeting:import', { transcript }),
   pickMeetingTextFile: (): Promise<string | null> => ipcRenderer.invoke('meeting:pick-text-file'),
+  importMeetingAudio: (): Promise<{ filePath: string; id: number; title: string } | null> =>
+    ipcRenderer.invoke('meeting:import-audio'),
   copyText: (text: string): void => ipcRenderer.send('clipboard:write', text),
   showToast: (text: string): void => ipcRenderer.send('toast:show', text),
   windowMinimize: (): void => ipcRenderer.send('window:minimize'),

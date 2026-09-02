@@ -26,6 +26,7 @@ export async function transcribeMeetingChunk(
   audio: Buffer,
   apiKey: string,
   language: string = 'fr',
+  mimeType: string = 'audio/webm',
   signal?: AbortSignal
 ): Promise<DiarizedSegment[]> {
   if (!apiKey) {
@@ -44,7 +45,7 @@ export async function transcribeMeetingChunk(
     method: 'POST',
     headers: {
       Authorization: `Token ${apiKey}`,
-      'Content-Type': 'audio/webm'
+      'Content-Type': mimeType
     },
     body: Uint8Array.from(audio),
     signal
@@ -61,4 +62,22 @@ export async function transcribeMeetingChunk(
     start: u.start,
     end: u.end
   }))
+}
+
+// Devine le type MIME depuis l'extension du fichier — nécessaire pour un
+// import de fichier audio existant (contrairement au live, toujours en
+// webm via MediaRecorder), sinon Deepgram peut mal décoder l'audio.
+const MIME_TYPES_BY_EXTENSION: Record<string, string> = {
+  m4a: 'audio/mp4',
+  mp4: 'audio/mp4',
+  mp3: 'audio/mpeg',
+  wav: 'audio/wav',
+  webm: 'audio/webm',
+  ogg: 'audio/ogg',
+  aac: 'audio/aac'
+}
+
+export function guessAudioMimeType(filePath: string): string {
+  const extension = filePath.split('.').pop()?.toLowerCase() ?? ''
+  return MIME_TYPES_BY_EXTENSION[extension] ?? 'audio/mp4'
 }

@@ -1160,5 +1160,27 @@ meetingImportSubmitEl.addEventListener('click', async () => {
   }
 })
 
+const meetingImportAudioEl = document.querySelector<HTMLButtonElement>('#meeting-import-audio')!
+meetingImportAudioEl.addEventListener('click', async () => {
+  const originalLabel = meetingImportAudioEl.textContent
+  meetingImportAudioEl.disabled = true
+  meetingImportAudioEl.textContent = 'Transcription en cours… (peut prendre un moment)'
+  try {
+    const result = await window.api.importMeetingAudio()
+    if (result) {
+      meetingImportPanelEl.style.display = 'none'
+      statusEl.textContent = 'Fichier audio importé et résumé ✅'
+      await loadMeetingList()
+      document.getElementById('section-meeting-list')!.classList.add('open')
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    statusEl.textContent = `Erreur d'import audio : ${message}`
+  } finally {
+    meetingImportAudioEl.disabled = false
+    meetingImportAudioEl.textContent = originalLabel
+  }
+})
+
 renderSettings()
 renderApiKeys()

@@ -61,7 +61,7 @@ import {
 import { createTray } from './tray'
 import { createDeepgramProvider } from './transcription/deepgram'
 import { createGroqProvider } from './transcription/groq'
-import { transcribeMeetingChunk } from './transcription/meeting-transcribe'
+import { guessAudioMimeType, transcribeMeetingChunk } from './transcription/meeting-transcribe'
 import { createRouter } from './transcription/router'
 import type { TranscriptionProvider } from './transcription/types'
 import { createWhisperProvider } from './transcription/whisper'
@@ -568,6 +568,31 @@ ipcMain.handle('meeting:pick-text-file', async () => {
   })
   if (result.canceled || result.filePaths.length === 0) return null
   return readFile(result.filePaths[0], 'utf-8')
+})
+
+// Import d'un fichier audio existant (ex. piste audio exportée d'une note
+// Notability) : diarisé et résumé comme une vraie réunion, en un seul appel
+// — pas de découpage en morceaux comme pour l'enregistrement en direct,
+// Deepgram gère de gros fichiers en une fois contrairement à Whisper (25 Mo
+// max). Un enregistrement extrêmement long pourrait tout de même dépasser
+// ses limites ; l'erreur remonte alors telle quelle au renderer.
+ipcMain.handle('meeting:import-audio', async () => {
+  if (!mainWindow) return null
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openFile'],
+    filters: [{ name: 'Audio', extensions: ['m4a', 'mp3', 'wav', 'webm', 'ogg', 'mp4', 'aac'] }]
+  })
+  if (result.canceled || result.filePaths.length === 0) return null
+
+  const filePath = result.filePaths[0]
+  const audio = await readFile(filePath)
+  const mimeType = guessAudioMimeType(filePath)
+  const language = getMeetingLanguage()
+
+  const segments = await transcribeMeetingChunk(audio, process.env.DEEPGRAM_API_KEY ?? '', language, mimeType)
+  const transcript = segments.map((s) => `Intervenant ${s.speaker} : ${s.text}`).join('\n')
+  const summary = await summarizeMeeting(transcript, process.env.GROQ_API_KEY, language)
+  return persistMeeting(transcript, summary, 0, true)
 })
 
 ipcMain.handle('meeting:list', () => getMeetings())
