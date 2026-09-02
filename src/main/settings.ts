@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto'
 import Store from 'electron-store'
 
 export interface HistoryEntry {
@@ -20,6 +21,13 @@ export interface MeetingIndexEntry {
   imported?: boolean
 }
 
+export interface VocabularyList {
+  id: string
+  name: string
+  terms: string
+  enabled: boolean
+}
+
 interface Settings {
   shortcutRaw: string
   shortcutClean: string
@@ -28,7 +36,7 @@ interface Settings {
   shortcutMeeting: string
   shortcutLock: string
   providerOrder: string[]
-  vocabulary: string
+  vocabularyLists: VocabularyList[]
   silenceDurationMs: number
   projectPath: string
   microphoneId: string
@@ -52,6 +60,10 @@ const SHORTCUT_KEY_MAP: Record<ShortcutKey, keyof Settings> = {
 const DEFAULT_VOCABULARY =
   'TypeScript, JavaScript, Electron, npm, Claude Code, VS Code, Groq, Deepgram, Whisper, IPC, preload, renderer, refactoriser, débugger, commit, endpoint, API'
 
+const DEFAULT_VOCABULARY_LISTS: VocabularyList[] = [
+  { id: 'vscode', name: 'VS Code', terms: DEFAULT_VOCABULARY, enabled: true }
+]
+
 const MAX_HISTORY = 50
 
 const store = new Store<Settings>({
@@ -63,7 +75,7 @@ const store = new Store<Settings>({
     shortcutMeeting: 'CommandOrControl+Alt+M',
     shortcutLock: 'CommandOrControl+Alt+L',
     providerOrder: ['groq', 'deepgram', 'whisper'],
-    vocabulary: DEFAULT_VOCABULARY,
+    vocabularyLists: DEFAULT_VOCABULARY_LISTS,
     silenceDurationMs: 1800,
     projectPath: '',
     microphoneId: '',
@@ -75,6 +87,17 @@ const store = new Store<Settings>({
     meetingRetentionDays: 90
   }
 })
+
+// Migration ponctuelle depuis l'ancien champ "vocabulary" (une seule chaîne)
+// vers des listes nommées indépendantes — la valeur existante devient la
+// première liste ("VS Code") plutôt que d'être perdue.
+;(function migrateLegacyVocabulary(): void {
+  const legacy = store.get('vocabulary' as keyof Settings) as unknown as string | undefined
+  if (legacy && !store.has('vocabularyLists')) {
+    store.set('vocabularyLists', [{ id: randomUUID(), name: 'VS Code', terms: legacy, enabled: true }])
+  }
+  store.delete('vocabulary' as keyof Settings)
+})()
 
 export function getShortcuts(): Record<ShortcutKey, string> {
   return {
@@ -99,12 +122,44 @@ export function setProviderOrder(order: string[]): void {
   store.set('providerOrder', order)
 }
 
-export function getVocabulary(): string {
-  return store.get('vocabulary')
+export function getVocabularyLists(): VocabularyList[] {
+  return store.get('vocabularyLists')
 }
 
-export function setVocabulary(text: string): void {
-  store.set('vocabulary', text)
+export function addVocabularyList(name: string, terms: string): VocabularyList {
+  const list: VocabularyList = { id: randomUUID(), name, terms, enabled: true }
+  store.set('vocabularyLists', [...store.get('vocabularyLists'), list])
+  return list
+}
+
+export function updateVocabularyList(
+  id: string,
+  updates: Partial<Pick<VocabularyList, 'name' | 'terms' | 'enabled'>>
+): void {
+  const lists = store.get('vocabularyLists')
+  store.set(
+    'vocabularyLists',
+    lists.map((list) => (list.id === id ? { ...list, ...updates } : list))
+  )
+}
+
+export function removeVocabularyList(id: string): void {
+  const lists = store.get('vocabularyLists')
+  store.set(
+    'vocabularyLists',
+    lists.filter((list) => list.id !== id)
+  )
+}
+
+// Concatène les termes de toutes les listes actives — c'est ce qui est
+// effectivement transmis aux fournisseurs de transcription comme indice.
+export function getEffectiveListVocabulary(): string {
+  return store
+    .get('vocabularyLists')
+    .filter((list) => list.enabled)
+    .map((list) => list.terms.trim())
+    .filter(Boolean)
+    .join(', ')
 }
 
 export function getSilenceDuration(): number {

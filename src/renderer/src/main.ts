@@ -3,7 +3,7 @@ import { startMeetingRecording, type MeetingRecorderHandle } from './meeting-rec
 const statusEl = document.querySelector<HTMLParagraphElement>('#status')!
 const dotEl = document.querySelector<HTMLSpanElement>('#dot')!
 const shortcutRowsEl = document.querySelector<HTMLDivElement>('#shortcut-rows')!
-const vocabularyEl = document.querySelector<HTMLTextAreaElement>('#vocabulary')!
+const vocabularyListsEl = document.querySelector<HTMLDivElement>('#vocabulary-lists')!
 const historyBodyEl = document.querySelector<HTMLDivElement>('#history-body')!
 const historyTitleEl = document.querySelector<HTMLSpanElement>('#history-title')!
 const silenceDurationEl = document.querySelector<HTMLInputElement>('#silence-duration')!
@@ -387,7 +387,6 @@ function renderProviderOrder(order: string[]): void {
 async function renderSettings(): Promise<void> {
   const {
     shortcuts,
-    vocabulary,
     silenceDurationMs: storedSilenceMs,
     projectPath,
     microphoneId,
@@ -398,7 +397,7 @@ async function renderSettings(): Promise<void> {
     shortcutsRegistered
   } = await window.api.getSettings()
   applyLockState(locked)
-  vocabularyEl.value = vocabulary
+  await renderVocabularyLists()
   meetingLanguageEl.value = meetingLanguage
   meetingRetentionEl.value = String(meetingRetentionDays)
 
@@ -444,8 +443,56 @@ async function renderSettings(): Promise<void> {
   }
 }
 
-document.querySelector('#save-vocabulary')!.addEventListener('click', () => {
-  window.api.updateVocabulary(vocabularyEl.value)
+interface VocabularyList {
+  id: string
+  name: string
+  terms: string
+  enabled: boolean
+}
+
+async function renderVocabularyLists(): Promise<void> {
+  const lists = await window.api.listVocabulary()
+
+  vocabularyListsEl.innerHTML = lists
+    .map(
+      (list: VocabularyList) => `
+      <div class="vocab-list-card" data-id="${list.id}">
+        <div class="vocab-list-header">
+          <input type="checkbox" class="vocab-list-enabled" ${list.enabled ? 'checked' : ''} title="Active" />
+          <input type="text" class="vocab-list-name" value="${escapeHtml(list.name)}" />
+          <button class="vocab-list-delete" title="Supprimer">✕</button>
+        </div>
+        <textarea class="vocab-list-terms" ${list.enabled ? '' : 'disabled'} placeholder="Termes séparés par des virgules…">${escapeHtml(list.terms)}</textarea>
+      </div>`
+    )
+    .join('')
+
+  vocabularyListsEl.querySelectorAll<HTMLDivElement>('.vocab-list-card').forEach((card) => {
+    const id = card.dataset.id!
+    const enabledEl = card.querySelector<HTMLInputElement>('.vocab-list-enabled')!
+    const nameEl = card.querySelector<HTMLInputElement>('.vocab-list-name')!
+    const termsEl = card.querySelector<HTMLTextAreaElement>('.vocab-list-terms')!
+
+    enabledEl.addEventListener('change', () => {
+      termsEl.disabled = !enabledEl.checked
+      window.api.updateVocabularyList(id, { enabled: enabledEl.checked })
+    })
+    nameEl.addEventListener('change', () => {
+      window.api.updateVocabularyList(id, { name: nameEl.value.trim() || 'Sans nom' })
+    })
+    termsEl.addEventListener('change', () => {
+      window.api.updateVocabularyList(id, { terms: termsEl.value })
+    })
+    card.querySelector('.vocab-list-delete')!.addEventListener('click', async () => {
+      await window.api.removeVocabularyList(id)
+      await renderVocabularyLists()
+    })
+  })
+}
+
+document.querySelector('#add-vocabulary-list')!.addEventListener('click', async () => {
+  await window.api.addVocabularyList('Nouvelle liste', '')
+  await renderVocabularyLists()
 })
 
 document.querySelector('#choose-project')!.addEventListener('click', async () => {

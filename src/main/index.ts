@@ -24,10 +24,12 @@ import { hasEncryptedKeys, loadEncryptedKeys, saveEncryptedKeys } from './secure
 import { showToast } from './toast'
 import {
   addHistoryEntry,
+  addVocabularyList,
   addMeetingEntry,
   addUsageSeconds,
   clearHistory,
   getCostRates,
+  getEffectiveListVocabulary,
   getHistory,
   getMeetingLanguage,
   getMeetingRetentionDays,
@@ -38,9 +40,10 @@ import {
   getShortcuts,
   getSilenceDuration,
   getUsageSeconds,
-  getVocabulary,
+  getVocabularyLists,
   removeHistoryEntry,
   removeMeetingEntry,
+  removeVocabularyList,
   setCostRate,
   setMeetingLanguage,
   setMeetingRetentionDays,
@@ -50,9 +53,10 @@ import {
   setProviderOrder,
   setShortcut,
   setSilenceDuration,
-  setVocabulary,
+  updateVocabularyList,
   type MeetingLanguage,
-  type ShortcutKey
+  type ShortcutKey,
+  type VocabularyList
 } from './settings'
 import { createTray } from './tray'
 import { createDeepgramProvider } from './transcription/deepgram'
@@ -133,7 +137,7 @@ function notify(text: string): void {
 }
 
 function getEffectiveVocabulary(): string {
-  const base = getVocabulary()
+  const base = getEffectiveListVocabulary()
   const projectVocab = getProjectVocabulary(getProjectPath())
   return projectVocab ? `${base}, ${projectVocab}` : base
 }
@@ -377,7 +381,7 @@ ipcMain.on('audio:complete', async (_event, buffer: ArrayBuffer, durationMs: num
 
 ipcMain.handle('settings:get', () => ({
   shortcuts: getShortcuts(),
-  vocabulary: getVocabulary(),
+  vocabularyLists: getVocabularyLists(),
   silenceDurationMs: getSilenceDuration(),
   projectPath: getProjectPath(),
   microphoneId: getMicrophoneId(),
@@ -409,8 +413,21 @@ ipcMain.handle('settings:update-shortcut', (_event, key: ShortcutKey, accelerato
   return ok
 })
 
-ipcMain.handle('settings:update-vocabulary', (_event, text: string) => {
-  setVocabulary(text)
+ipcMain.handle('vocabulary:list', () => getVocabularyLists())
+
+ipcMain.handle('vocabulary:add', (_event, { name, terms }: { name: string; terms: string }) =>
+  addVocabularyList(name, terms)
+)
+
+ipcMain.handle(
+  'vocabulary:update',
+  (_event, { id, updates }: { id: string; updates: Partial<Pick<VocabularyList, 'name' | 'terms' | 'enabled'>> }) => {
+    updateVocabularyList(id, updates)
+  }
+)
+
+ipcMain.handle('vocabulary:remove', (_event, id: string) => {
+  removeVocabularyList(id)
 })
 
 ipcMain.handle('settings:update-silence-duration', (_event, ms: number) => {

@@ -17,9 +17,16 @@ type UpdateStatus =
   | { state: 'downloaded'; version: string }
   | { state: 'error'; message: string }
 
+interface VocabularyList {
+  id: string
+  name: string
+  terms: string
+  enabled: boolean
+}
+
 interface SettingsSnapshot {
   shortcuts: Record<string, string>
-  vocabulary: string
+  vocabularyLists: VocabularyList[]
   silenceDurationMs: number
   projectPath: string
   microphoneId: string
@@ -92,8 +99,14 @@ const api = {
   getSettings: (): Promise<SettingsSnapshot> => ipcRenderer.invoke('settings:get'),
   updateShortcut: (key: string, accelerator: string): Promise<boolean> =>
     ipcRenderer.invoke('settings:update-shortcut', key, accelerator),
-  updateVocabulary: (text: string): Promise<void> =>
-    ipcRenderer.invoke('settings:update-vocabulary', text),
+  listVocabulary: (): Promise<VocabularyList[]> => ipcRenderer.invoke('vocabulary:list'),
+  addVocabularyList: (name: string, terms: string): Promise<VocabularyList> =>
+    ipcRenderer.invoke('vocabulary:add', { name, terms }),
+  updateVocabularyList: (
+    id: string,
+    updates: Partial<Pick<VocabularyList, 'name' | 'terms' | 'enabled'>>
+  ): Promise<void> => ipcRenderer.invoke('vocabulary:update', { id, updates }),
+  removeVocabularyList: (id: string): Promise<void> => ipcRenderer.invoke('vocabulary:remove', id),
   updateSilenceDuration: (ms: number): Promise<void> =>
     ipcRenderer.invoke('settings:update-silence-duration', ms),
   getApiKeyStatus: (): Promise<{ groq: boolean; deepgram: boolean; openai: boolean; encrypted: boolean }> =>

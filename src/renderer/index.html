@@ -581,15 +581,54 @@
         padding: 0;
       }
 
-      textarea#vocabulary {
-        width: 100%;
-        min-height: 70px;
-        border: 1px solid var(--line);
+      .vocab-list-card {
+        background: var(--card);
         border-radius: 10px;
-        padding: 10px;
+        padding: 10px 12px;
+        margin-bottom: 8px;
+      }
+      .vocab-list-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 6px;
+      }
+      .vocab-list-name {
+        flex: 1;
+        border: none;
+        background: none;
+        font-size: 12.5px;
+        font-weight: 600;
+        padding: 2px 4px;
+        border-radius: 6px;
+      }
+      .vocab-list-name:focus {
+        background: var(--accent-soft);
+        outline: none;
+      }
+      .vocab-list-delete {
+        border: none;
+        background: none;
+        color: var(--muted);
+        cursor: pointer;
+        font-size: 13px;
+        flex: none;
+      }
+      .vocab-list-delete:hover {
+        color: var(--danger);
+      }
+      .vocab-list-terms {
+        width: 100%;
+        min-height: 60px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 8px;
         font-size: 12px;
         font-family: inherit;
         resize: vertical;
+      }
+      .vocab-list-terms:disabled {
+        opacity: 0.5;
       }
       .save-btn {
         margin-top: 6px;
@@ -876,11 +915,11 @@
               Vocabulaire technique
             </label>
             <p class="field-hint">
-              Mots que le transcripteur reconnaît mieux à l'oral (noms d'outils, termes techniques). Ajoute ou
-              retire librement, séparés par des virgules.
+              Mots que le transcripteur reconnaît mieux à l'oral (noms d'outils, termes techniques). Plusieurs
+              listes indépendantes peuvent coexister — toutes les listes cochées sont actives ensemble.
             </p>
-            <textarea id="vocabulary"></textarea>
-            <button class="save-btn" id="save-vocabulary">Enregistrer</button>
+            <div id="vocabulary-lists"></div>
+            <button class="modify-link" id="add-vocabulary-list">+ Nouvelle liste</button>
           </div>
           <div class="field-row">
             <label style="font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px">
