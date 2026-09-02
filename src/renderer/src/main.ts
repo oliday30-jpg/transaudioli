@@ -959,7 +959,7 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
           ${entry.imported ? '<span class="imported-badge">📥 Importé</span>' : `<span>· ${formatElapsed(entry.durationMs)}</span>`}
         </div>
         <div class="meeting-list-title-row">
-          <span class="title">${escapeHtml(entry.title)}</span>
+          <input type="text" class="title meeting-title-input" value="${escapeHtml(entry.title)}" />
           <button class="meeting-export-btn" data-id="${entry.id}" title="Exporter en PDF">⬇ PDF</button>
           <button class="history-delete" data-id="${entry.id}" title="Supprimer">✕</button>
         </div>
@@ -975,6 +975,19 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
     const entry = currentMeetings.find((m) => m.id === id)
     if (!entry) return
     const filePath = entry.filePath
+
+    // Pas de stopPropagation ici : le champ occupe presque toute la largeur
+    // de la ligne, donc bloquer la propagation empêcherait aussi le clic
+    // normal pour déplier la carte. Laisser le clic remonter fait juste
+    // déplier/replier en plus d'ouvrir le champ pour édition — anodin,
+    // le champ reste visible et éditable que la carte soit ouverte ou non.
+    const titleInput = item.querySelector<HTMLInputElement>('.meeting-title-input')!
+    titleInput.addEventListener('change', () => {
+      const title = titleInput.value.trim() || 'Sans titre'
+      titleInput.value = title
+      window.api.updateMeetingTitle(id, title)
+      entry.title = title
+    })
 
     // Contenu complet du fichier, tel que lu depuis le disque — conservé ici
     // pour pouvoir y appliquer un renommage d'intervenant sans recharger.
@@ -1042,11 +1055,30 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
 
       body.innerHTML = `
         <div class="meeting-body-toolbar">
+          <button class="modify-link meeting-resummarize">🔁 Régénérer le résumé</button>
           <button class="modify-link meeting-edit-toggle">✏️ Modifier</button>
         </div>
         ${renameForm}${termCorrectionForm}<div class="meeting-summary">${renderMarkdownLite(content)}</div>`
 
       body.querySelector('.meeting-edit-toggle')?.addEventListener('click', renderEditMode)
+
+      body.querySelector('.meeting-resummarize')?.addEventListener('click', async (event) => {
+        const button = event.currentTarget as HTMLButtonElement
+        const originalLabel = button.textContent
+        button.disabled = true
+        button.textContent = 'Résumé en cours…'
+        try {
+          await window.api.resummarizeMeeting(id)
+          rawContent = await window.api.openMeeting(filePath)
+          renderBody()
+          statusEl.textContent = 'Résumé régénéré ✅'
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error)
+          statusEl.textContent = `Erreur lors de la régénération : ${message}`
+          button.disabled = false
+          button.textContent = originalLabel
+        }
+      })
 
       body.querySelector('.speaker-rename-apply')?.addEventListener('click', async () => {
         let updated = rawContent

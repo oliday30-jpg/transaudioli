@@ -43,6 +43,7 @@ import {
   getVocabularyLists,
   removeHistoryEntry,
   removeMeetingEntry,
+  updateMeetingTitle,
   removeVocabularyList,
   setCostRate,
   setMeetingLanguage,
@@ -639,6 +640,35 @@ ipcMain.handle('meeting:search', async (_event, query: string) => {
 // final, le fichier est simplement remplacé tel quel.
 ipcMain.handle('meeting:update-content', async (_event, { filePath, content }: { filePath: string; content: string }) => {
   await writeFile(filePath, content, 'utf-8')
+})
+
+// Titre libre : contrairement au reste (renommage d'intervenants, correction
+// de termes), c'est le seul champ que l'utilisateur tape entièrement
+// lui-même plutôt qu'une modification du contenu existant — pratique pour y
+// mettre client / sujet, la date étant déjà affichée à côté dans la liste.
+ipcMain.handle('meeting:update-title', (_event, { id, title }: { id: number; title: string }) => {
+  updateMeetingTitle(id, title)
+})
+
+// Regénère uniquement le résumé (garde le transcript déjà transcrit) — sert
+// à réessayer après un échec (clé API, panne réseau) sans tout retranscrire,
+// ou simplement pour relancer avec un contenu de transcript modifié à la main.
+// Ne touche jamais au titre : une fois retitré à la main, ça reste tel quel.
+ipcMain.handle('meeting:resummarize', async (_event, id: number) => {
+  const entry = getMeetings().find((m) => m.id === id)
+  if (!entry) return null
+
+  const raw = await readFile(entry.filePath, 'utf-8')
+  const marker = '## Transcript complet\n\n'
+  const markerIndex = raw.indexOf(marker)
+  const transcript = markerIndex !== -1 ? raw.slice(markerIndex + marker.length) : ''
+  const headingLine = raw.split('\n')[0]
+
+  const summary = await summarizeMeeting(transcript, process.env.GROQ_API_KEY, getMeetingLanguage())
+  const newContent = `${headingLine}\n\n${summary}\n\n---\n\n${marker}${transcript}`
+  await writeFile(entry.filePath, newContent, 'utf-8')
+
+  return { summary }
 })
 
 ipcMain.handle(

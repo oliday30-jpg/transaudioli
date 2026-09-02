@@ -319,8 +319,22 @@
         align-items: center;
         cursor: pointer;
       }
-      .meeting-list-item .meeting-list-title-row span.title {
+      .meeting-list-item .meeting-list-title-row .title {
         flex: 1;
+      }
+      input.meeting-title-input {
+        border: none;
+        background: none;
+        font: inherit;
+        color: inherit;
+        padding: 2px 4px;
+        border-radius: 6px;
+        cursor: text;
+      }
+      input.meeting-title-input:hover,
+      input.meeting-title-input:focus {
+        background: var(--accent-soft);
+        outline: none;
       }
       .meeting-list-body {
         margin-top: 8px;

@@ -252,6 +252,14 @@ export function removeMeetingEntry(id: number): void {
   )
 }
 
+export function updateMeetingTitle(id: number, title: string): void {
+  const meetings = store.get('meetings')
+  store.set(
+    'meetings',
+    meetings.map((entry) => (entry.id === id ? { ...entry, title } : entry))
+  )
+}
+
 export function getMeetingRetentionDays(): number {
   return store.get('meetingRetentionDays')
 }

@@ -151,6 +151,10 @@ const api = {
   openMeeting: (filePath: string): Promise<string> => ipcRenderer.invoke('meeting:open', filePath),
   updateMeetingContent: (filePath: string, content: string): Promise<void> =>
     ipcRenderer.invoke('meeting:update-content', { filePath, content }),
+  updateMeetingTitle: (id: number, title: string): Promise<void> =>
+    ipcRenderer.invoke('meeting:update-title', { id, title }),
+  resummarizeMeeting: (id: number): Promise<{ summary: string } | null> =>
+    ipcRenderer.invoke('meeting:resummarize', id),
   deleteMeeting: (id: number): Promise<void> => ipcRenderer.invoke('meeting:delete', id),
   exportMeetingPdf: (filePath: string, title: string): Promise<string | null> =>
     ipcRenderer.invoke('meeting:export-pdf', { filePath, title }),

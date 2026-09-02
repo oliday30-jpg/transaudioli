@@ -398,6 +398,8 @@ const html = `<!doctype html>
   transcript — pratique pour retrouver une réunion à partir d'un mot ou d'un nom mentionné dedans, même
   s'il n'apparaît pas dans le titre. Un clic déplie le résumé et le transcript complet ; un bouton
   supprime la réunion (fichier compris).</p>
+  <p>Le titre est <b>librement modifiable</b> : clique dedans et tape ce que tu veux (client, sujet…) — la
+  date reste affichée juste à côté séparément, pas besoin de la répéter dans le titre.</p>
 
   <h2><span class="icon">✏️</span>Édition, renommage &amp; correction de termes</h2>
   <p>Dans une réunion dépliée, un bouton <b>✏️ Modifier</b> permet de corriger librement le texte du
@@ -408,6 +410,10 @@ const html = `<!doctype html>
   document — pas besoin de corriger chaque passage un par un. Insensible à la casse (une même erreur peut
   apparaître différemment orthographiée d'un passage à l'autre). Tous ces remplacements sont écrits
   directement dans le fichier, donc visibles aussi dans un futur export PDF.</p>
+  <p>Si le résumé automatique a échoué (clé API manquante, panne réseau…), un avertissement visible
+  ⚠️ remplace désormais le résumé attendu — auparavant ceci passait inaperçu, laissant juste le transcript
+  brut sans explication. Le bouton <b>🔁 Régénérer le résumé</b> relance uniquement la génération du
+  résumé (sans retranscrire l'audio) ; il ne touche jamais à un titre déjà personnalisé.</p>
 
   <h2><span class="icon">📥</span>Import de transcript externe</h2>
   <p>Le bouton <b>📥 Importer un transcript</b> permet de coller (ou charger depuis un fichier .txt) un
