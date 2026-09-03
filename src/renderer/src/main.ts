@@ -774,6 +774,12 @@ let meetingSegments: MeetingSegment[] = []
 let meetingStartedAt = 0
 let meetingTimerInterval: ReturnType<typeof setInterval> | null = null
 let pendingMeetingChunks = 0
+// Conservés pour recoller un fichier audio complet à la fin — permet
+// d'écouter la réunion en parallèle du transcript (identifier les
+// intervenants plus facilement). Les morceaux se chevauchent légèrement
+// (voir meeting-recorder.ts) donc le fichier recollé a de très courts
+// passages en double aux jointures, acceptable pour de l'écoute.
+let recordedChunkBlobs: Blob[] = []
 
 const meetingToggleBtn = document.querySelector<HTMLButtonElement>('#meeting-toggle')!
 const meetingTimerEl = document.querySelector<HTMLSpanElement>('#meeting-timer')!
@@ -785,6 +791,49 @@ function formatElapsed(ms: number): string {
   const minutes = Math.floor(totalSeconds / 60)
   const seconds = totalSeconds % 60
   return `${minutes}:${String(seconds).padStart(2, '0')}`
+}
+
+const AUDIO_MIME_TYPES_BY_EXTENSION: Record<string, string> = {
+  m4a: 'audio/mp4',
+  mp4: 'audio/mp4',
+  mp3: 'audio/mpeg',
+  wav: 'audio/wav',
+  webm: 'audio/webm',
+  ogg: 'audio/ogg',
+  aac: 'audio/aac'
+}
+
+// Récupère l'audio via IPC (pas de lien file:// direct : ne se charge pas
+// pareil selon dev — page servie en http:// — ou version empaquetée — page
+// servie en file://) et le transforme en blob: URL pour l'élément <audio>.
+async function loadMeetingAudio(audioPath: string, audioEl: HTMLAudioElement): Promise<void> {
+  const buffer = await window.api.getMeetingAudio(audioPath)
+  const extension = audioPath.split('.').pop()?.toLowerCase() ?? ''
+  const mimeType = AUDIO_MIME_TYPES_BY_EXTENSION[extension] ?? 'audio/webm'
+  audioEl.src = URL.createObjectURL(new Blob([buffer], { type: mimeType }))
+
+  // Les .webm issus de MediaRecorder (réunions enregistrées en direct) n'ont
+  // pas de durée dans leurs métadonnées — Chromium affiche "Infinity" tant
+  // qu'on n'a pas cherché une fois vers la fin, ce qui force son recalcul.
+  // Contournement standard, inoffensif sur un fichier qui a déjà une durée
+  // correcte (import audio).
+  audioEl.addEventListener(
+    'durationchange',
+    function fixInfiniteDuration() {
+      if (audioEl.duration !== Infinity) return
+      audioEl.removeEventListener('durationchange', fixInfiniteDuration)
+      audioEl.currentTime = 1e101
+      audioEl.addEventListener(
+        'timeupdate',
+        function resetToStart() {
+          audioEl.removeEventListener('timeupdate', resetToStart)
+          audioEl.currentTime = 0
+        },
+        { once: true }
+      )
+    },
+    { once: false }
+  )
 }
 
 // Rendu minimal du Markdown produit par le résumé (## titres, listes à
@@ -804,6 +853,7 @@ function renderMarkdownLite(markdown: string): string {
 async function startMeeting(): Promise<void> {
   meetingSegments = []
   pendingMeetingChunks = 0
+  recordedChunkBlobs = []
   meetingLiveEl.innerHTML = ''
   meetingResultEl.style.display = 'none'
   meetingResultEl.innerHTML = ''
@@ -816,6 +866,7 @@ async function startMeeting(): Promise<void> {
     chunkDurationMs: MEETING_CHUNK_DURATION_MS,
     onChunkReady: async (blob) => {
       pendingMeetingChunks++
+      recordedChunkBlobs.push(blob)
       const buffer = await blob.arrayBuffer()
       window.api.sendMeetingChunk(buffer)
     },
@@ -871,11 +922,15 @@ async function stopMeeting(): Promise<void> {
 
   const summary = await window.api.summarizeMeeting(fullTranscript)
   const durationMs = Date.now() - meetingStartedAt
+  const audioBuffer =
+    recordedChunkBlobs.length > 0 ? await new Blob(recordedChunkBlobs, { type: 'audio/webm' }).arrayBuffer() : undefined
   const { filePath: savedPath, title: savedTitle } = await window.api.saveMeeting({
     transcript: fullTranscript,
     summary,
-    durationMs
+    durationMs,
+    audioBuffer
   })
+  recordedChunkBlobs = []
 
   meetingResultEl.innerHTML = `
     <div class="meeting-summary">${renderMarkdownLite(summary)}</div>
@@ -936,6 +991,7 @@ interface MeetingIndexEntry {
   durationMs: number
   filePath: string
   imported?: boolean
+  audioPath?: string
 }
 
 let currentMeetings: MeetingIndexEntry[] = []
@@ -982,6 +1038,7 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
     const entry = currentMeetings.find((m) => m.id === id)
     if (!entry) return
     const filePath = entry.filePath
+    const audioPath = entry.audioPath
 
     // Pas de stopPropagation ici : le champ occupe presque toute la largeur
     // de la ligne, donc bloquer la propagation empêcherait aussi le clic
@@ -1060,12 +1117,24 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
           <button class="modify-link term-correct-apply">Remplacer partout</button>
         </div>`
 
+      const audioPlayer = audioPath
+        ? '<audio controls class="meeting-audio-player"></audio>'
+        : ''
+
       body.innerHTML = `
         <div class="meeting-body-toolbar">
           <button class="modify-link meeting-resummarize">🔁 Régénérer le résumé</button>
           <button class="modify-link meeting-edit-toggle">✏️ Modifier</button>
         </div>
+        ${audioPlayer}
         ${renameForm}${termCorrectionForm}<div class="meeting-summary">${renderMarkdownLite(content)}</div>`
+
+      if (audioPath) {
+        const audioEl = body.querySelector<HTMLAudioElement>('.meeting-audio-player')!
+        loadMeetingAudio(audioPath, audioEl).catch((error) => {
+          console.warn('Audio de réunion indisponible :', error)
+        })
+      }
 
       body.querySelector('.meeting-edit-toggle')?.addEventListener('click', renderEditMode)
 

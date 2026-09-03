@@ -401,6 +401,13 @@ const html = `<!doctype html>
   <p>Le titre est <b>librement modifiable</b> : clique dedans et tape ce que tu veux (client, sujet…) — la
   date reste affichée juste à côté séparément, pas besoin de la répéter dans le titre.</p>
 
+  <h2><span class="icon">🎧</span>Écouter l'audio</h2>
+  <p>Quand l'audio original est disponible (réunion enregistrée en direct ou importée depuis un fichier),
+  un lecteur audio apparaît en haut de la réunion dépliée — pratique pour réécouter en parallèle du
+  transcript et identifier plus facilement qui a dit quoi avant de renommer les intervenants. Pour les
+  réunions enregistrées avant cette fonctionnalité, aucun lecteur n'apparaît (l'audio n'a jamais été
+  conservé).</p>
+
   <h2><span class="icon">✏️</span>Édition, renommage &amp; correction de termes</h2>
   <p>Dans une réunion dépliée, un bouton <b>✏️ Modifier</b> permet de corriger librement le texte du
   résumé ou du transcript après coup. Si des « Intervenant N » sont détectés, un petit formulaire propose
@@ -438,9 +445,11 @@ const html = `<!doctype html>
   accessible depuis le même PC) — pas besoin de passer par l'iPad pour importer un compte-rendu.</p>
 
   <h2><span class="icon">✉️</span>Export par email</h2>
-  <p>Le bouton <b>✉️</b> (à côté du PDF) ouvre le client mail par défaut avec le résumé (résumé,
-  décisions, actions à faire) déjà rempli en sujet et corps du message — pas le transcript complet, pour
-  rester lisible. Comme les liens <code>mailto:</code> ne permettent pas de joindre un fichier
+  <p>Le bouton <b>✉️</b> (à côté du PDF) ouvre <b>Outlook classique</b> (pas « le nouveau Outlook ») avec
+  le résumé (résumé, décisions, actions à faire) déjà rempli en sujet et corps du message — pas le
+  transcript complet, pour rester lisible. Outlook classique est repéré et lancé directement ; si Outlook
+  n'est pas installé, le client mail par défaut du système prend le relais. Comme ce mécanisme ne
+  permet pas de joindre un fichier
   automatiquement, si tu veux joindre le PDF, exporte-le d'abord séparément puis glisse-le dans le mail
   ouvert.</p>
 

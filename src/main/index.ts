@@ -12,7 +12,9 @@ import {
   shell,
   type Tray
 } from 'electron'
+import { execFile, execFileSync } from 'child_process'
 import { autoUpdater } from 'electron-updater'
+import { existsSync } from 'fs'
 import { appendFile, mkdir, readFile, unlink, writeFile } from 'fs/promises'
 import { join } from 'path'
 import { processTranscript } from './cleanup'
@@ -529,8 +531,9 @@ async function persistMeeting(
   transcript: string,
   summary: string,
   durationMs: number,
-  imported: boolean
-): Promise<{ filePath: string; id: number; title: string }> {
+  imported: boolean,
+  audio?: { buffer: Buffer; extension: string }
+): Promise<{ filePath: string; id: number; title: string; audioPath?: string }> {
   const dir = join(app.getPath('userData'), 'reunions')
   await mkdir(dir, { recursive: true })
   const id = Date.now()
@@ -540,16 +543,39 @@ async function persistMeeting(
   const content = `# ${heading} — ${date.toLocaleString('fr-FR')}\n\n${summary}\n\n---\n\n## Transcript complet\n\n${transcript}\n`
   await writeFile(filePath, content, 'utf-8')
 
-  const title = deriveMeetingTitle(summary, date)
-  addMeetingEntry({ id, title, date: id, durationMs, filePath, imported })
+  // Conserve une copie de l'audio (import ou enregistrement live) à côté du
+  // transcript — permet d'écouter en parallèle du texte pour identifier les
+  // intervenants plus facilement, plutôt que de se fier uniquement au texte.
+  let audioPath: string | undefined
+  if (audio) {
+    audioPath = join(dir, `reunion-${id}.${audio.extension}`)
+    await writeFile(audioPath, audio.buffer)
+  }
 
-  return { filePath, id, title }
+  const title = deriveMeetingTitle(summary, date)
+  addMeetingEntry({ id, title, date: id, durationMs, filePath, imported, audioPath })
+
+  return { filePath, id, title, audioPath }
 }
 
 ipcMain.handle(
   'meeting:save',
-  (_event, { transcript, summary, durationMs }: { transcript: string; summary: string; durationMs: number }) =>
-    persistMeeting(transcript, summary, durationMs, false)
+  (
+    _event,
+    {
+      transcript,
+      summary,
+      durationMs,
+      audioBuffer
+    }: { transcript: string; summary: string; durationMs: number; audioBuffer?: ArrayBuffer }
+  ) =>
+    persistMeeting(
+      transcript,
+      summary,
+      durationMs,
+      false,
+      audioBuffer ? { buffer: Buffer.from(audioBuffer), extension: 'webm' } : undefined
+    )
 )
 
 // Import : permet de coller/charger un transcript obtenu ailleurs (par ex.
@@ -600,13 +626,22 @@ ipcMain.handle('meeting:import-audio', async () => {
   )
   const transcript = segments.map((s) => `Intervenant ${s.speaker} : ${s.text}`).join('\n')
   const summary = await summarizeMeeting(transcript, process.env.GROQ_API_KEY, language)
-  return persistMeeting(transcript, summary, 0, true)
+  const extension = filePath.split('.').pop()?.toLowerCase() || 'audio'
+  return persistMeeting(transcript, summary, 0, true, { buffer: audio, extension })
 })
 
 ipcMain.handle('meeting:list', () => getMeetings())
 
 ipcMain.handle('meeting:open', async (_event, filePath: string) => {
   return readFile(filePath, 'utf-8')
+})
+
+// Renvoie l'audio brut pour lecture côté renderer (transformé en blob: URL
+// là-bas) — plus fiable qu'un lien file:// direct, qui ne se charge pas de
+// la même façon selon qu'on est en dev (page servie en http://) ou en
+// version empaquetée (page servie en file://).
+ipcMain.handle('meeting:get-audio', async (_event, audioPath: string) => {
+  return readFile(audioPath)
 })
 
 // Recherche plein texte : au-delà du titre, regarde aussi dans le résumé et
@@ -712,20 +747,51 @@ ipcMain.handle(
   }
 )
 
-// Ouvre le client mail par défaut avec le résumé pré-rempli (sujet + corps),
-// via mailto: — pas de pièce jointe possible par ce protocole (limite de
-// sécurité des navigateurs/OS, pas de notre app) : uniquement le texte du
-// résumé, pas le transcript complet ni le PDF. Pour joindre le PDF, il faut
-// l'exporter séparément (bouton ⬇ PDF) puis le glisser dans le mail ouvert.
+// Repère Outlook "classique" (desktop, pas la version "nouveau Outlook")
+// via la clé App Paths standard de Windows — c'est la même que Windows
+// utilise pour résoudre "outlook.exe" depuis Exécuter/un raccourci, donc
+// fiable quelle que soit la version d'Office installée.
+function findClassicOutlook(): string | null {
+  if (process.platform !== 'win32') return null
+  try {
+    const output = execFileSync('reg', [
+      'query',
+      'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\OUTLOOK.EXE'
+    ]).toString()
+    const match = output.match(/REG_SZ\s+(.+)/)
+    const outlookPath = match?.[1]?.trim()
+    return outlookPath && existsSync(outlookPath) ? outlookPath : null
+  } catch {
+    return null
+  }
+}
+
+// Ouvre le client mail avec le résumé pré-rempli (sujet + corps) — pas de
+// pièce jointe possible (limite du mécanisme utilisé, pas de notre app) :
+// uniquement le texte du résumé, pas le transcript complet ni le PDF. Pour
+// joindre le PDF, il faut l'exporter séparément (bouton ⬇ PDF) puis le
+// glisser dans le mail ouvert.
+//
+// Priorité à Outlook classique lancé directement (contourne "nouveau
+// Outlook" qui peut s'être enregistré comme gestionnaire mailto: par
+// défaut) ; repli sur mailto: si Outlook classique n'est pas trouvé.
 ipcMain.handle(
   'meeting:export-email',
   async (_event, { filePath, title }: { filePath: string; title: string }) => {
     const raw = await readFile(filePath, 'utf-8')
     const withoutTitleLine = raw.split('\n').slice(2).join('\n')
     const summaryOnly = withoutTitleLine.split('\n---\n')[0].trim()
+    const mailtoParams = `?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(summaryOnly)}`
 
-    const mailto = `mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(summaryOnly)}`
-    await shell.openExternal(mailto)
+    const outlookPath = findClassicOutlook()
+    if (outlookPath) {
+      execFile(outlookPath, ['/c', 'ipm.note', '/m', mailtoParams], (error) => {
+        if (error) console.warn('Échec ouverture Outlook classique :', error)
+      })
+      return
+    }
+
+    await shell.openExternal(`mailto:${mailtoParams}`)
   }
 )
 
@@ -733,11 +799,14 @@ async function deleteMeetingById(id: number): Promise<void> {
   const entry = getMeetings().find((m) => m.id === id)
   removeMeetingEntry(id)
   if (entry) {
-    try {
-      await unlink(entry.filePath)
-    } catch {
-      // Le fichier a peut-être déjà été déplacé/supprimé manuellement — on
-      // retire quand même l'entrée de l'index.
+    for (const path of [entry.filePath, entry.audioPath]) {
+      if (!path) continue
+      try {
+        await unlink(path)
+      } catch {
+        // Le fichier a peut-être déjà été déplacé/supprimé manuellement — on
+        // retire quand même l'entrée de l'index.
+      }
     }
   }
 }

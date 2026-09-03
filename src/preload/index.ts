@@ -44,6 +44,7 @@ interface MeetingIndexEntry {
   durationMs: number
   filePath: string
   imported?: boolean
+  audioPath?: string
 }
 
 interface UsageSnapshot {
@@ -140,8 +141,10 @@ const api = {
     transcript: string
     summary: string
     durationMs: number
-  }): Promise<{ filePath: string; id: number; title: string }> =>
+    audioBuffer?: ArrayBuffer
+  }): Promise<{ filePath: string; id: number; title: string; audioPath?: string }> =>
     ipcRenderer.invoke('meeting:save', data),
+  getMeetingAudio: (audioPath: string): Promise<ArrayBuffer> => ipcRenderer.invoke('meeting:get-audio', audioPath),
   updateMeetingLanguage: (language: MeetingLanguage): Promise<void> =>
     ipcRenderer.invoke('settings:update-meeting-language', language),
   updateMeetingRetention: (days: number): Promise<void> =>

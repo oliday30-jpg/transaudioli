@@ -19,6 +19,7 @@ export interface MeetingIndexEntry {
   durationMs: number
   filePath: string
   imported?: boolean
+  audioPath?: string
 }
 
 export interface VocabularyList {

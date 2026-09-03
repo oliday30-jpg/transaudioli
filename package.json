@@ -1,7 +1,7 @@
 {
   "name": "transaudioli",
   "productName": "TransAudiOli",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Dicte, transcris, colle dans Claude Code.",
   "private": true,
   "main": "./out/main/index.js",
@@ -52,7 +52,8 @@
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true
     },
     "publish": {
