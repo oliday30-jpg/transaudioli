@@ -64,7 +64,7 @@ import {
 import { createTray } from './tray'
 import { createDeepgramProvider } from './transcription/deepgram'
 import { createGroqProvider } from './transcription/groq'
-import { guessAudioMimeType, transcribeMeetingChunk } from './transcription/meeting-transcribe'
+import { guessAudioMimeType, transcribeMeetingChunk, type DiarizedSegment } from './transcription/meeting-transcribe'
 import { createRouter } from './transcription/router'
 import type { TranscriptionProvider } from './transcription/types'
 import { createWhisperProvider } from './transcription/whisper'
@@ -532,7 +532,8 @@ async function persistMeeting(
   summary: string,
   durationMs: number,
   imported: boolean,
-  audio?: { buffer: Buffer; extension: string }
+  audio?: { buffer: Buffer; extension: string },
+  segments?: DiarizedSegment[]
 ): Promise<{ filePath: string; id: number; title: string; audioPath?: string }> {
   const dir = join(app.getPath('userData'), 'reunions')
   await mkdir(dir, { recursive: true })
@@ -550,6 +551,17 @@ async function persistMeeting(
   if (audio) {
     audioPath = join(dir, `reunion-${id}.${audio.extension}`)
     await writeFile(audioPath, audio.buffer)
+  }
+
+  // Horodatage par intervention (Deepgram), gardé à part plutôt que dans le
+  // .md — sert à surligner le passage en cours pendant la lecture audio,
+  // via un alignement par position avec les lignes du transcript. Un edit
+  // libre du texte qui change le nombre de lignes désynchronise cet
+  // alignement ; le renderer s'en aperçoit et désactive juste le surlignage
+  // plutôt que d'afficher un mauvais horodatage.
+  if (segments && segments.length > 0) {
+    const segmentsPath = join(dir, `reunion-${id}.segments.json`)
+    await writeFile(segmentsPath, JSON.stringify(segments), 'utf-8')
   }
 
   const title = deriveMeetingTitle(summary, date)
@@ -627,7 +639,7 @@ ipcMain.handle('meeting:import-audio', async () => {
   const transcript = segments.map((s) => `Intervenant ${s.speaker} : ${s.text}`).join('\n')
   const summary = await summarizeMeeting(transcript, process.env.GROQ_API_KEY, language)
   const extension = filePath.split('.').pop()?.toLowerCase() || 'audio'
-  return persistMeeting(transcript, summary, 0, true, { buffer: audio, extension })
+  return persistMeeting(transcript, summary, 0, true, { buffer: audio, extension }, segments)
 })
 
 ipcMain.handle('meeting:list', () => getMeetings())
@@ -642,6 +654,18 @@ ipcMain.handle('meeting:open', async (_event, filePath: string) => {
 // version empaquetée (page servie en file://).
 ipcMain.handle('meeting:get-audio', async (_event, audioPath: string) => {
   return readFile(audioPath)
+})
+
+// Le sidecar d'horodatage partage le même nom de base que le .md — dérivé
+// directement plutôt que stocké comme champ séparé dans l'index.
+ipcMain.handle('meeting:get-segments', async (_event, filePath: string) => {
+  const segmentsPath = filePath.replace(/\.md$/, '.segments.json')
+  if (!existsSync(segmentsPath)) return null
+  try {
+    return JSON.parse(await readFile(segmentsPath, 'utf-8')) as DiarizedSegment[]
+  } catch {
+    return null
+  }
 })
 
 // Recherche plein texte : au-delà du titre, regarde aussi dans le résumé et
@@ -799,13 +823,15 @@ async function deleteMeetingById(id: number): Promise<void> {
   const entry = getMeetings().find((m) => m.id === id)
   removeMeetingEntry(id)
   if (entry) {
-    for (const path of [entry.filePath, entry.audioPath]) {
+    const segmentsPath = entry.filePath.replace(/\.md$/, '.segments.json')
+    for (const path of [entry.filePath, entry.audioPath, segmentsPath]) {
       if (!path) continue
       try {
         await unlink(path)
       } catch {
-        // Le fichier a peut-être déjà été déplacé/supprimé manuellement — on
-        // retire quand même l'entrée de l'index.
+        // Le fichier a peut-être déjà été déplacé/supprimé manuellement, ou
+        // n'a jamais existé (pas de sidecar horodatage pour cette réunion)
+        // — on retire quand même l'entrée de l'index.
       }
     }
   }

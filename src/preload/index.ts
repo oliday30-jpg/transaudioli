@@ -145,6 +145,8 @@ const api = {
   }): Promise<{ filePath: string; id: number; title: string; audioPath?: string }> =>
     ipcRenderer.invoke('meeting:save', data),
   getMeetingAudio: (audioPath: string): Promise<ArrayBuffer> => ipcRenderer.invoke('meeting:get-audio', audioPath),
+  getMeetingSegments: (filePath: string): Promise<DiarizedSegment[] | null> =>
+    ipcRenderer.invoke('meeting:get-segments', filePath),
   updateMeetingLanguage: (language: MeetingLanguage): Promise<void> =>
     ipcRenderer.invoke('settings:update-meeting-language', language),
   updateMeetingRetention: (days: number): Promise<void> =>

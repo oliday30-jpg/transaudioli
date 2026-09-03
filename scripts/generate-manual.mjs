@@ -407,6 +407,12 @@ const html = `<!doctype html>
   transcript et identifier plus facilement qui a dit quoi avant de renommer les intervenants. Pour les
   réunions enregistrées avant cette fonctionnalité, aucun lecteur n'apparaît (l'audio n'a jamais été
   conservé).</p>
+  <p>Pour les <b>imports de fichier audio</b>, le transcript se surligne automatiquement ligne par ligne
+  pendant la lecture — la phrase en train d'être prononcée s'illumine en direct, et cliquer sur une ligne
+  déplace la lecture à ce moment précis. Très utile pour repérer rapidement qui est « Intervenant 0 »
+  avant de le renommer. Cette synchronisation n'est pas (encore) disponible pour les réunions enregistrées
+  en direct, où le découpage en morceaux rend le numéro d'intervenant incohérent d'un morceau à l'autre
+  (voir « Limites connues » plus bas).</p>
 
   <h2><span class="icon">✏️</span>Édition, renommage &amp; correction de termes</h2>
   <p>Dans une réunion dépliée, un bouton <b>✏️ Modifier</b> permet de corriger librement le texte du
@@ -457,6 +463,11 @@ const html = `<!doctype html>
   <ul>
     <li>La diarisation identifie des <i>numéros</i> d'intervenants au départ — le renommage manuel comble
       cette limite après coup, mais rien n'associe automatiquement un numéro à un nom.</li>
+    <li>Pour une réunion <b>enregistrée en direct</b> (découpée en morceaux de 3 minutes envoyés
+      séparément à la transcription), le numéro d'un intervenant n'est <i>pas garanti</i> de rester le
+      même d'un morceau à l'autre — « Intervenant 0 » du premier morceau peut être une personne
+      différente d'« Intervenant 0 » du deuxième. Les imports de fichier audio (un seul passage sur tout
+      le fichier) n'ont pas ce problème.</li>
     <li>Enregistrer un appel (surtout externe, avec des clients ou partenaires) soulève des questions de
       confidentialité — consentement des participants, politique interne de l'entreprise — à vérifier
       avant un usage professionnel réel, indépendamment de ce que permet l'outil techniquement.</li>

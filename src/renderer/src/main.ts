@@ -994,6 +994,13 @@ interface MeetingIndexEntry {
   audioPath?: string
 }
 
+interface TimedSegment {
+  speaker: number
+  text: string
+  start: number
+  end: number
+}
+
 let currentMeetings: MeetingIndexEntry[] = []
 const meetingListTitleEl = document.querySelector<HTMLSpanElement>('#meeting-list-title')!
 const meetingListBodyEl = document.querySelector<HTMLDivElement>('#meeting-list-body')!
@@ -1056,10 +1063,23 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
     // Contenu complet du fichier, tel que lu depuis le disque — conservé ici
     // pour pouvoir y appliquer un renommage d'intervenant sans recharger.
     let rawContent = ''
+    // Horodatage par intervention (si disponible — import audio seulement
+    // pour l'instant) pour le surlignage synchronisé avec le lecteur audio.
+    let segments: TimedSegment[] | null = null
 
     // Retire la ligne de titre "# Réunion — …" et la ligne vide qui suit,
     // déjà affichées via entry.title/date dans l'en-tête de la carte.
     const displayContent = (): string => rawContent.split('\n').slice(2).join('\n')
+
+    // Sépare résumé et transcript à la séparation "---" — le résumé garde le
+    // rendu markdown habituel, le transcript peut être rendu en lignes
+    // individuelles surlignables quand des horodatages sont disponibles.
+    function splitSummaryAndTranscript(content: string): { summaryPart: string; transcriptPart: string } {
+      const marker = '\n---\n\n## Transcript complet\n\n'
+      const idx = content.indexOf(marker)
+      if (idx === -1) return { summaryPart: content, transcriptPart: '' }
+      return { summaryPart: content.slice(0, idx), transcriptPart: content.slice(idx + marker.length) }
+    }
 
     function renderEditMode(): void {
       const content = displayContent()
@@ -1081,6 +1101,24 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
         renderBody()
         statusEl.textContent = 'Réunion modifiée ✅'
       })
+    }
+
+    // Rend le transcript en lignes individuelles surlignables si un
+    // horodatage exploitable existe (même nombre de lignes que de segments
+    // — sinon un edit libre a changé la structure, on revient au rendu
+    // simple plutôt que d'afficher un surlignage qui pointerait au mauvais
+    // endroit).
+    function renderTranscriptHtml(transcriptPart: string, segs: TimedSegment[] | null): string {
+      const lines = transcriptPart.split('\n').filter((l) => l.trim())
+      if (!segs || segs.length !== lines.length) {
+        return lines.map((l) => `<p>${escapeHtml(l)}</p>`).join('\n')
+      }
+      return lines
+        .map((line, i) => {
+          const seg = segs[i]
+          return `<div class="meeting-utterance-line" data-start="${seg.start}" data-end="${seg.end}">${escapeHtml(line)}</div>`
+        })
+        .join('')
     }
 
     function renderBody(): void {
@@ -1121,19 +1159,42 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
         ? '<audio controls class="meeting-audio-player"></audio>'
         : ''
 
+      const { summaryPart, transcriptPart } = splitSummaryAndTranscript(content)
+      const transcriptHtml = transcriptPart
+        ? `<h4>Transcript complet</h4><div class="meeting-transcript">${renderTranscriptHtml(transcriptPart, segments)}</div>`
+        : ''
+
       body.innerHTML = `
         <div class="meeting-body-toolbar">
           <button class="modify-link meeting-resummarize">🔁 Régénérer le résumé</button>
           <button class="modify-link meeting-edit-toggle">✏️ Modifier</button>
         </div>
         ${audioPlayer}
-        ${renameForm}${termCorrectionForm}<div class="meeting-summary">${renderMarkdownLite(content)}</div>`
+        ${renameForm}${termCorrectionForm}<div class="meeting-summary">${renderMarkdownLite(summaryPart)}${transcriptHtml}</div>`
 
       if (audioPath) {
         const audioEl = body.querySelector<HTMLAudioElement>('.meeting-audio-player')!
         loadMeetingAudio(audioPath, audioEl).catch((error) => {
           console.warn('Audio de réunion indisponible :', error)
         })
+
+        const utteranceEls = body.querySelectorAll<HTMLDivElement>('.meeting-utterance-line')
+        if (utteranceEls.length > 0) {
+          audioEl.addEventListener('timeupdate', () => {
+            const t = audioEl.currentTime
+            utteranceEls.forEach((el) => {
+              const active = t >= Number(el.dataset.start) && t < Number(el.dataset.end)
+              el.classList.toggle('active', active)
+              if (active) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+            })
+          })
+          utteranceEls.forEach((el) => {
+            el.addEventListener('click', () => {
+              audioEl.currentTime = Number(el.dataset.start)
+              audioEl.play()
+            })
+          })
+        }
       }
 
       body.querySelector('.meeting-edit-toggle')?.addEventListener('click', renderEditMode)
@@ -1207,6 +1268,7 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
       body.innerHTML = '<p class="empty">Chargement…</p>'
       try {
         rawContent = await window.api.openMeeting(filePath)
+        segments = await window.api.getMeetingSegments(filePath)
         renderBody()
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)

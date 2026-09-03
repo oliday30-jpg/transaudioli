@@ -381,6 +381,25 @@
         height: 32px;
         margin-bottom: 10px;
       }
+      .meeting-transcript {
+        max-height: 260px;
+        overflow-y: auto;
+      }
+      .meeting-utterance-line {
+        padding: 4px 6px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 12.5px;
+        margin: 1px 0;
+      }
+      .meeting-utterance-line:hover {
+        background: var(--line);
+      }
+      .meeting-utterance-line.active {
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-weight: 600;
+      }
       .meeting-edit-textarea {
         width: 100%;
         min-height: 160px;
