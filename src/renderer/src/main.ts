@@ -1179,14 +1179,36 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
         })
 
         const utteranceEls = body.querySelectorAll<HTMLDivElement>('.meeting-utterance-line')
+        const transcriptContainer = body.querySelector<HTMLDivElement>('.meeting-transcript')
         if (utteranceEls.length > 0) {
+          let previousActiveEl: HTMLDivElement | null = null
           audioEl.addEventListener('timeupdate', () => {
             const t = audioEl.currentTime
+            let currentActiveEl: HTMLDivElement | null = null
             utteranceEls.forEach((el) => {
               const active = t >= Number(el.dataset.start) && t < Number(el.dataset.end)
               el.classList.toggle('active', active)
-              if (active) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+              if (active) currentActiveEl = el
             })
+
+            // Ne fait défiler que lors d'un changement de ligne active, pas
+            // à chaque tick de "timeupdate" (plusieurs fois par seconde) —
+            // sinon impossible de remonter manuellement vers les contrôles
+            // du lecteur, le défilement automatique reprenait le dessus
+            // presque aussitôt. Fait défiler uniquement l'intérieur du
+            // transcript (jamais la page entière), pour ne jamais pousser
+            // le lecteur audio hors de vue.
+            if (currentActiveEl && currentActiveEl !== previousActiveEl && transcriptContainer) {
+              const active = currentActiveEl as HTMLDivElement
+              const containerRect = transcriptContainer.getBoundingClientRect()
+              const lineRect = active.getBoundingClientRect()
+              if (lineRect.top < containerRect.top) {
+                transcriptContainer.scrollTop -= containerRect.top - lineRect.top
+              } else if (lineRect.bottom > containerRect.bottom) {
+                transcriptContainer.scrollTop += lineRect.bottom - containerRect.bottom
+              }
+            }
+            previousActiveEl = currentActiveEl
           })
           utteranceEls.forEach((el) => {
             el.addEventListener('click', () => {
