@@ -62,6 +62,7 @@ import {
   type VocabularyList
 } from './settings'
 import { createTray } from './tray'
+import { createCloudflareProvider } from './transcription/cloudflare'
 import { createDeepgramProvider } from './transcription/deepgram'
 import { createGeminiProvider } from './transcription/gemini'
 import { createGroqProvider } from './transcription/groq'
@@ -90,7 +91,11 @@ function buildRouter(): void {
     groq: createGroqProvider(process.env.GROQ_API_KEY),
     deepgram: createDeepgramProvider(process.env.DEEPGRAM_API_KEY),
     whisper: createWhisperProvider(process.env.OPENAI_API_KEY),
-    gemini: createGeminiProvider(process.env.GEMINI_API_KEY)
+    gemini: createGeminiProvider(process.env.GEMINI_API_KEY),
+    cloudflare: createCloudflareProvider({
+      accountId: process.env.CLOUDFLARE_ACCOUNT_ID,
+      apiToken: process.env.CLOUDFLARE_API_TOKEN
+    })
   }
 
   const orderedProviders = getProviderOrder()
@@ -104,7 +109,14 @@ function buildRouter(): void {
 
 buildRouter()
 
-const API_KEY_NAMES = ['GROQ_API_KEY', 'DEEPGRAM_API_KEY', 'OPENAI_API_KEY', 'GEMINI_API_KEY']
+const API_KEY_NAMES = [
+  'GROQ_API_KEY',
+  'DEEPGRAM_API_KEY',
+  'OPENAI_API_KEY',
+  'GEMINI_API_KEY',
+  'CLOUDFLARE_ACCOUNT_ID',
+  'CLOUDFLARE_API_TOKEN'
+]
 
 // Migration ponctuelle : les clés qui existaient encore en clair dans
 // userData/.env (ancien mécanisme) sont chiffrées une fois puis effacées de
@@ -444,12 +456,24 @@ ipcMain.handle('settings:get-api-key-status', () => ({
   deepgram: Boolean(process.env.DEEPGRAM_API_KEY),
   openai: Boolean(process.env.OPENAI_API_KEY),
   gemini: Boolean(process.env.GEMINI_API_KEY),
+  cloudflareAccountId: Boolean(process.env.CLOUDFLARE_ACCOUNT_ID),
+  cloudflareApiToken: Boolean(process.env.CLOUDFLARE_API_TOKEN),
   encrypted: safeStorage.isEncryptionAvailable()
 }))
 
 ipcMain.handle(
   'settings:update-api-keys',
-  (_event, keys: { groq?: string; deepgram?: string; openai?: string; gemini?: string }) => {
+  (
+    _event,
+    keys: {
+      groq?: string
+      deepgram?: string
+      openai?: string
+      gemini?: string
+      cloudflareAccountId?: string
+      cloudflareApiToken?: string
+    }
+  ) => {
     const updates: Record<string, string> = {}
     if (keys.groq) {
       updates.GROQ_API_KEY = keys.groq
@@ -466,6 +490,14 @@ ipcMain.handle(
     if (keys.gemini) {
       updates.GEMINI_API_KEY = keys.gemini
       process.env.GEMINI_API_KEY = keys.gemini
+    }
+    if (keys.cloudflareAccountId) {
+      updates.CLOUDFLARE_ACCOUNT_ID = keys.cloudflareAccountId
+      process.env.CLOUDFLARE_ACCOUNT_ID = keys.cloudflareAccountId
+    }
+    if (keys.cloudflareApiToken) {
+      updates.CLOUDFLARE_API_TOKEN = keys.cloudflareApiToken
+      process.env.CLOUDFLARE_API_TOKEN = keys.cloudflareApiToken
     }
 
     if (Object.keys(updates).length > 0) {

@@ -352,7 +352,8 @@ const PROVIDER_LABELS: Record<string, string> = {
   groq: 'Groq',
   deepgram: 'Deepgram',
   whisper: 'Whisper (OpenAI)',
-  gemini: 'Gemini 3.5 Transcribe'
+  gemini: 'Gemini 3.5 Transcribe',
+  cloudflare: 'Cloudflare Workers AI'
 }
 
 function renderProviderOrder(order: string[]): void {
@@ -514,7 +515,9 @@ const API_PROVIDERS = [
   { key: 'groq', label: 'Groq', url: 'https://console.groq.com/keys' },
   { key: 'deepgram', label: 'Deepgram', url: 'https://console.deepgram.com' },
   { key: 'openai', label: 'OpenAI', url: 'https://platform.openai.com/api-keys' },
-  { key: 'gemini', label: 'Google Gemini', url: 'https://aistudio.google.com/apikey' }
+  { key: 'gemini', label: 'Google Gemini', url: 'https://aistudio.google.com/apikey' },
+  { key: 'cloudflareAccountId', label: 'Cloudflare — Account ID', url: 'https://dash.cloudflare.com' },
+  { key: 'cloudflareApiToken', label: 'Cloudflare — API Token', url: 'https://dash.cloudflare.com' }
 ] as const
 
 async function renderApiKeys(): Promise<void> {

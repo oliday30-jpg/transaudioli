@@ -75,7 +75,7 @@ const store = new Store<Settings>({
     cancelShortcut: 'CommandOrControl+Shift+R',
     shortcutMeeting: 'CommandOrControl+Alt+M',
     shortcutLock: 'CommandOrControl+Alt+L',
-    providerOrder: ['groq', 'deepgram', 'whisper', 'gemini'],
+    providerOrder: ['groq', 'deepgram', 'whisper', 'gemini', 'cloudflare'],
     vocabularyLists: DEFAULT_VOCABULARY_LISTS,
     silenceDurationMs: 1800,
     projectPath: '',
@@ -104,8 +104,9 @@ const store = new Store<Settings>({
 // installations existantes, sans perturber le classement déjà personnalisé.
 ;(function migrateProviderOrder(): void {
   const order = store.get('providerOrder')
-  if (!order.includes('gemini')) {
-    store.set('providerOrder', [...order, 'gemini'])
+  const missing = ['gemini', 'cloudflare'].filter((name) => !order.includes(name))
+  if (missing.length > 0) {
+    store.set('providerOrder', [...order, ...missing])
   }
 })()
 

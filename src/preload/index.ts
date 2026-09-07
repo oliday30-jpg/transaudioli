@@ -115,6 +115,8 @@ const api = {
     deepgram: boolean
     openai: boolean
     gemini: boolean
+    cloudflareAccountId: boolean
+    cloudflareApiToken: boolean
     encrypted: boolean
   }> => ipcRenderer.invoke('settings:get-api-key-status'),
   updateApiKeys: (keys: {
@@ -122,6 +124,8 @@ const api = {
     deepgram?: string
     openai?: string
     gemini?: string
+    cloudflareAccountId?: string
+    cloudflareApiToken?: string
   }): Promise<void> => ipcRenderer.invoke('settings:update-api-keys', keys),
   chooseProjectFolder: (): Promise<string | null> =>
     ipcRenderer.invoke('settings:choose-project-folder'),
