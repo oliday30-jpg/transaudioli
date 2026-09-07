@@ -63,6 +63,7 @@ import {
 } from './settings'
 import { createTray } from './tray'
 import { createDeepgramProvider } from './transcription/deepgram'
+import { createGeminiProvider } from './transcription/gemini'
 import { createGroqProvider } from './transcription/groq'
 import { guessAudioMimeType, transcribeMeetingChunk, type DiarizedSegment } from './transcription/meeting-transcribe'
 import { createRouter } from './transcription/router'
@@ -88,7 +89,8 @@ function buildRouter(): void {
   const availableProviders: Record<string, TranscriptionProvider> = {
     groq: createGroqProvider(process.env.GROQ_API_KEY),
     deepgram: createDeepgramProvider(process.env.DEEPGRAM_API_KEY),
-    whisper: createWhisperProvider(process.env.OPENAI_API_KEY)
+    whisper: createWhisperProvider(process.env.OPENAI_API_KEY),
+    gemini: createGeminiProvider(process.env.GEMINI_API_KEY)
   }
 
   const orderedProviders = getProviderOrder()
@@ -102,7 +104,7 @@ function buildRouter(): void {
 
 buildRouter()
 
-const API_KEY_NAMES = ['GROQ_API_KEY', 'DEEPGRAM_API_KEY', 'OPENAI_API_KEY']
+const API_KEY_NAMES = ['GROQ_API_KEY', 'DEEPGRAM_API_KEY', 'OPENAI_API_KEY', 'GEMINI_API_KEY']
 
 // Migration ponctuelle : les clés qui existaient encore en clair dans
 // userData/.env (ancien mécanisme) sont chiffrées une fois puis effacées de
@@ -441,12 +443,13 @@ ipcMain.handle('settings:get-api-key-status', () => ({
   groq: Boolean(process.env.GROQ_API_KEY),
   deepgram: Boolean(process.env.DEEPGRAM_API_KEY),
   openai: Boolean(process.env.OPENAI_API_KEY),
+  gemini: Boolean(process.env.GEMINI_API_KEY),
   encrypted: safeStorage.isEncryptionAvailable()
 }))
 
 ipcMain.handle(
   'settings:update-api-keys',
-  (_event, keys: { groq?: string; deepgram?: string; openai?: string }) => {
+  (_event, keys: { groq?: string; deepgram?: string; openai?: string; gemini?: string }) => {
     const updates: Record<string, string> = {}
     if (keys.groq) {
       updates.GROQ_API_KEY = keys.groq
@@ -459,6 +462,10 @@ ipcMain.handle(
     if (keys.openai) {
       updates.OPENAI_API_KEY = keys.openai
       process.env.OPENAI_API_KEY = keys.openai
+    }
+    if (keys.gemini) {
+      updates.GEMINI_API_KEY = keys.gemini
+      process.env.GEMINI_API_KEY = keys.gemini
     }
 
     if (Object.keys(updates).length > 0) {

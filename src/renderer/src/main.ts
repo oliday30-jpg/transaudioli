@@ -351,7 +351,8 @@ meetingRetentionEl.addEventListener('change', () => {
 const PROVIDER_LABELS: Record<string, string> = {
   groq: 'Groq',
   deepgram: 'Deepgram',
-  whisper: 'Whisper (OpenAI)'
+  whisper: 'Whisper (OpenAI)',
+  gemini: 'Gemini 3.5 Transcribe'
 }
 
 function renderProviderOrder(order: string[]): void {
@@ -512,7 +513,8 @@ document.querySelector('#clear-project')!.addEventListener('click', async () => 
 const API_PROVIDERS = [
   { key: 'groq', label: 'Groq', url: 'https://console.groq.com/keys' },
   { key: 'deepgram', label: 'Deepgram', url: 'https://console.deepgram.com' },
-  { key: 'openai', label: 'OpenAI', url: 'https://platform.openai.com/api-keys' }
+  { key: 'openai', label: 'OpenAI', url: 'https://platform.openai.com/api-keys' },
+  { key: 'gemini', label: 'Google Gemini', url: 'https://aistudio.google.com/apikey' }
 ] as const
 
 async function renderApiKeys(): Promise<void> {

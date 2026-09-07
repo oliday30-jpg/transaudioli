@@ -265,7 +265,7 @@ const html = `<!doctype html>
 
 <section>
   <h1 class="section-title">6. Fournisseurs de transcription</h1>
-  <p>Trois fournisseurs sont configurés, essayés dans un ordre de priorité modifiable depuis
+  <p>Quatre fournisseurs sont configurés, essayés dans un ordre de priorité modifiable depuis
   <b>Réglages</b> : si le premier échoue (clé manquante, panne, quota dépassé), le suivant prend
   automatiquement le relais.</p>
   <table>
@@ -273,8 +273,12 @@ const html = `<!doctype html>
     <tr><td>Groq</td><td>Transcription rapide, fournisseur principal par défaut.</td></tr>
     <tr><td>Deepgram</td><td>Fournisseur de repli ; seul fournisseur utilisé pour la diarisation en mode Réunion.</td></tr>
     <tr><td>Whisper (OpenAI)</td><td>Second fournisseur de repli.</td></tr>
+    <tr><td>Gemini 3.5 Transcribe</td><td>Fournisseur de repli optionnel, dictée simple uniquement (voir ci-dessous).</td></tr>
   </table>
   <p>Le fournisseur réellement utilisé pour chaque dictée est indiqué dans l'historique.</p>
+  <p><b>Gemini 3.5 Transcribe n'est jamais utilisé pour le mode Réunion :</b> son API ne permet pas de
+  combiner vocabulaire personnalisé et identification des intervenants dans la même requête, ce dont
+  le mode Réunion a besoin en permanence. Deepgram reste donc le seul fournisseur du mode Réunion.</p>
 </section>
 
 <section>
@@ -327,8 +331,8 @@ const html = `<!doctype html>
 
 <section>
   <h1 class="section-title">12. Clés API &amp; sécurité</h1>
-  <p>Les clés des trois fournisseurs (Groq, Deepgram, OpenAI) se saisissent directement dans
-  l'application — plus besoin d'éditer un fichier de configuration à la main.</p>
+  <p>Les clés des quatre fournisseurs (Groq, Deepgram, OpenAI, Google Gemini) se saisissent directement
+  dans l'application — plus besoin d'éditer un fichier de configuration à la main.</p>
   <p>Elles sont stockées <b>chiffrées</b> sur le disque, via le mécanisme de sécurité natif de Windows
   (<code>safeStorage</code>, lié au compte utilisateur de la session) — pas en texte brut. Un message
   dans Réglages (🔒 Clés chiffrées sur ce PC) confirme que le chiffrement est actif.</p>

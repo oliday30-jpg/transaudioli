@@ -75,7 +75,7 @@ const store = new Store<Settings>({
     cancelShortcut: 'CommandOrControl+Shift+R',
     shortcutMeeting: 'CommandOrControl+Alt+M',
     shortcutLock: 'CommandOrControl+Alt+L',
-    providerOrder: ['groq', 'deepgram', 'whisper'],
+    providerOrder: ['groq', 'deepgram', 'whisper', 'gemini'],
     vocabularyLists: DEFAULT_VOCABULARY_LISTS,
     silenceDurationMs: 1800,
     projectPath: '',
@@ -98,6 +98,15 @@ const store = new Store<Settings>({
     store.set('vocabularyLists', [{ id: randomUUID(), name: 'VS Code', terms: legacy, enabled: true }])
   }
   store.delete('vocabulary' as keyof Settings)
+})()
+
+// Migration ponctuelle : ajoute "gemini" en fin d'ordre pour les
+// installations existantes, sans perturber le classement déjà personnalisé.
+;(function migrateProviderOrder(): void {
+  const order = store.get('providerOrder')
+  if (!order.includes('gemini')) {
+    store.set('providerOrder', [...order, 'gemini'])
+  }
 })()
 
 export function getShortcuts(): Record<ShortcutKey, string> {

@@ -110,10 +110,19 @@ const api = {
   removeVocabularyList: (id: string): Promise<void> => ipcRenderer.invoke('vocabulary:remove', id),
   updateSilenceDuration: (ms: number): Promise<void> =>
     ipcRenderer.invoke('settings:update-silence-duration', ms),
-  getApiKeyStatus: (): Promise<{ groq: boolean; deepgram: boolean; openai: boolean; encrypted: boolean }> =>
-    ipcRenderer.invoke('settings:get-api-key-status'),
-  updateApiKeys: (keys: { groq?: string; deepgram?: string; openai?: string }): Promise<void> =>
-    ipcRenderer.invoke('settings:update-api-keys', keys),
+  getApiKeyStatus: (): Promise<{
+    groq: boolean
+    deepgram: boolean
+    openai: boolean
+    gemini: boolean
+    encrypted: boolean
+  }> => ipcRenderer.invoke('settings:get-api-key-status'),
+  updateApiKeys: (keys: {
+    groq?: string
+    deepgram?: string
+    openai?: string
+    gemini?: string
+  }): Promise<void> => ipcRenderer.invoke('settings:update-api-keys', keys),
   chooseProjectFolder: (): Promise<string | null> =>
     ipcRenderer.invoke('settings:choose-project-folder'),
   clearProjectFolder: (): Promise<void> => ipcRenderer.invoke('settings:clear-project-folder'),
