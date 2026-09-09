@@ -1308,6 +1308,12 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
     button.addEventListener('click', async (event) => {
       event.stopPropagation()
       const id = Number(button.dataset.id)
+      const entry = currentMeetings.find((m) => m.id === id)
+      const label = entry?.title ? `« ${entry.title} »` : 'cette réunion'
+      const confirmed = window.confirm(
+        `Supprimer ${label} ? Les fichiers iront dans la Corbeille Windows (récupérables depuis là si besoin).`
+      )
+      if (!confirmed) return
       await window.api.deleteMeeting(id)
       currentMeetings = currentMeetings.filter((m) => m.id !== id)
       refreshMeetingListView()

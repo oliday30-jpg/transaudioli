@@ -15,7 +15,7 @@ import {
 import { execFile, execFileSync } from 'child_process'
 import { autoUpdater } from 'electron-updater'
 import { existsSync } from 'fs'
-import { appendFile, mkdir, readFile, unlink, writeFile } from 'fs/promises'
+import { appendFile, mkdir, readFile, writeFile } from 'fs/promises'
 import { join } from 'path'
 import { processTranscript } from './cleanup'
 import { clearEnvKeys, loadEnv } from './env'
@@ -866,7 +866,10 @@ async function deleteMeetingById(id: number): Promise<void> {
     for (const path of [entry.filePath, entry.audioPath, segmentsPath]) {
       if (!path) continue
       try {
-        await unlink(path)
+        // Envoie à la Corbeille Windows plutôt qu'un effacement définitif —
+        // une suppression accidentelle (ou une purge automatique) reste
+        // récupérable depuis la Corbeille, comme n'importe quel fichier.
+        await shell.trashItem(path)
       } catch {
         // Le fichier a peut-être déjà été déplacé/supprimé manuellement, ou
         // n'a jamais existé (pas de sidecar horodatage pour cette réunion)

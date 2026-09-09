@@ -411,7 +411,9 @@ const html = `<!doctype html>
   barre de recherche filtre non seulement sur le titre mais aussi sur le contenu complet — résumé et
   transcript — pratique pour retrouver une réunion à partir d'un mot ou d'un nom mentionné dedans, même
   s'il n'apparaît pas dans le titre. Un clic déplie le résumé et le transcript complet ; un bouton
-  supprime la réunion (fichier compris).</p>
+  supprime la réunion (fichier compris) — une confirmation est demandée avant toute suppression, et les
+  fichiers sont envoyés dans la <b>Corbeille Windows</b> plutôt qu'effacés directement : une suppression
+  accidentelle reste récupérable depuis la Corbeille, comme n'importe quel autre fichier.</p>
   <p>Le titre est <b>librement modifiable</b> : clique dedans et tape ce que tu veux (client, sujet…) — la
   date reste affichée juste à côté séparément, pas besoin de la répéter dans le titre.</p>
 
