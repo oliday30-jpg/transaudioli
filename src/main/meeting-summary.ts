@@ -71,13 +71,23 @@ function estimateTokens(text: string): number {
 // Un morceau de transcript reste sous cette taille pour garantir qu'un seul
 // appel "map" (prompt + réponse compris) tienne largement sous le plafond
 // Groq de 8000 tokens/minute, même en cas d'imprécision de l'estimation.
-const CHUNK_CHAR_LIMIT = 12000
+const CHUNK_CHAR_LIMIT = 9000
 
 // Marge de sécurité sous le plafond réel de Groq (8000 tokens/minute) — le
 // débit est suivi sur une fenêtre glissante de 60s ci-dessous.
 const TPM_BUDGET = 7500
-const DIGEST_MAX_TOKENS = 300
-const SUMMARY_MAX_TOKENS = 700
+
+// openai/gpt-oss-20b est un modèle "reasoning" : il consomme une partie du
+// budget max_tokens pour son raisonnement interne AVANT de produire la
+// réponse finale, et ce raisonnement peut à lui seul dépasser une limite
+// pourtant généreuse (observé : plus de 1200 tokens de raisonnement sur un
+// extrait réel), coupant la réponse en un contenu VIDE sans aucune erreur —
+// silencieusement, ce qui a produit des résumés "aucun contenu substantiel"
+// alors que le transcript en contenait. reasoning_effort:"low" (voir plus
+// bas) borne ce raisonnement à quelques tokens ; ces limites restent une
+// marge de sécurité, pas le mécanisme principal.
+const DIGEST_MAX_TOKENS = 1200
+const SUMMARY_MAX_TOKENS = 1500
 
 const usageLog: { time: number; tokens: number }[] = []
 
@@ -139,6 +149,7 @@ async function callGroqChat(
       model: 'openai/gpt-oss-20b',
       temperature: 0.3,
       max_tokens: maxTokens,
+      reasoning_effort: 'low',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userContent }
@@ -150,8 +161,20 @@ async function callGroqChat(
     throw new Error(`summary ${response.status}: ${await response.text()}`)
   }
 
-  const data = (await response.json()) as { choices: { message: { content: string } }[] }
-  return data.choices[0]?.message.content.trim() ?? ''
+  const data = (await response.json()) as {
+    choices: { message: { content: string }; finish_reason?: string }[]
+  }
+  const choice = data.choices[0]
+  const content = choice?.message.content.trim() ?? ''
+
+  // Filet de diagnostic : si la réponse est vide alors qu'elle a été coupée
+  // par max_tokens (raisonnement du modèle pas terminé), on le signale au
+  // lieu de laisser passer un résultat vide sans trace.
+  if (!content && choice?.finish_reason === 'length') {
+    console.warn(`Réponse Groq vide et tronquée (max_tokens=${maxTokens}) — augmenter la marge.`)
+  }
+
+  return content
 }
 
 export async function summarizeMeeting(
