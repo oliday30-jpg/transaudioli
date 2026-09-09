@@ -399,6 +399,11 @@ const html = `<!doctype html>
   <p>À la fin de l'enregistrement, un résumé structuré est généré par IA en trois parties : un résumé
   général, les décisions prises, et les actions à faire (avec la personne responsable quand elle est
   identifiable dans les échanges).</p>
+  <p>Pour les réunions longues, le transcript est découpé en plusieurs morceaux résumés séparément puis
+  fusionnés en un résumé final, afin de rester sous la limite gratuite de débit du fournisseur IA — une
+  réunion d'1h30-2h peut donc prendre plusieurs minutes avant que son résumé n'apparaisse (le transcript
+  brut, lui, est disponible immédiatement). Le résumé continue de se générer en arrière-plan, pas besoin
+  d'attendre pour continuer à utiliser l'application.</p>
 
   <h2><span class="icon">🗂️</span>Réunions enregistrées</h2>
   <p>Chaque réunion terminée est automatiquement sauvegardée et apparaît dans la section
