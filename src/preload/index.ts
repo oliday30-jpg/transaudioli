@@ -173,6 +173,8 @@ const api = {
     ipcRenderer.invoke('meeting:update-title', { id, title }),
   resummarizeMeeting: (id: number): Promise<{ summary: string } | null> =>
     ipcRenderer.invoke('meeting:resummarize', id),
+  suggestSpeakerNames: (id: number): Promise<Record<string, string>> =>
+    ipcRenderer.invoke('meeting:suggest-speaker-names', id),
   deleteMeeting: (id: number): Promise<void> => ipcRenderer.invoke('meeting:delete', id),
   exportMeetingPdf: (filePath: string, title: string): Promise<string | null> =>
     ipcRenderer.invoke('meeting:export-pdf', { filePath, title }),

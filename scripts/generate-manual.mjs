@@ -437,6 +437,16 @@ const html = `<!doctype html>
   <p>Dans une réunion dépliée, un bouton <b>✏️ Modifier</b> permet de corriger librement le texte du
   résumé ou du transcript après coup. Si des « Intervenant N » sont détectés, un petit formulaire propose
   de les renommer un par un.</p>
+  <p>Le bouton <b>💡 Suggérer les noms</b>, dans ce même formulaire, relance une passe IA sur le début du
+  transcript pour repérer les auto-présentations ("Je m'appelle Hank", "My name is Olivier") et
+  pré-remplit les champs correspondants — pratique en particulier pour un import sans lecteur audio
+  (plusieurs fichiers importés ensemble), où identifier les intervenants à l'oreille n'est pas possible.
+  Les suggestions ne sont jamais appliquées automatiquement : elles restent à vérifier et confirmer via
+  « Appliquer », comme un renommage tapé à la main.</p>
+  <p>Pour un import audio <b>à plusieurs fichiers</b>, la numérotation des intervenants reste distincte
+  d'un fichier à l'autre (chacun est diarisé séparément) — « Intervenant 0 » du premier fichier n'est
+  jamais confondu avec « Intervenant 0 » du second, chaque personne garde un numéro unique sur l'ensemble
+  de la réunion fusionnée.</p>
   <p>Un second formulaire, <b>« Corriger un terme »</b>, permet de remplacer en un clic <i>toutes</i> les
   occurrences d'un mot mal reconnu (par exemple « QuantiDAR » → « QuantStudio ») dans l'ensemble du
   document — pas besoin de corriger chaque passage un par un. Insensible à la casse (une même erreur peut

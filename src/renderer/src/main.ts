@@ -1154,7 +1154,10 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
                 </div>`
                 )
                 .join('')}
-              <button class="modify-link speaker-rename-apply">Appliquer</button>
+              <div class="speaker-rename-row">
+                <button class="modify-link speaker-suggest-names">💡 Suggérer les noms</button>
+                <button class="modify-link speaker-rename-apply">Appliquer</button>
+              </div>
             </div>`
 
       const termCorrectionForm = `
@@ -1265,6 +1268,37 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
         await window.api.updateMeetingContent(filePath, rawContent)
         renderBody()
         statusEl.textContent = 'Intervenants renommés ✅'
+      })
+
+      // Ne fait que pré-remplir le formulaire à partir d'indices trouvés dans
+      // le texte (auto-présentations) — jamais appliqué directement, toujours
+      // à confirmer via "Appliquer" comme un renommage tapé à la main.
+      body.querySelector('.speaker-suggest-names')?.addEventListener('click', async (event) => {
+        const button = event.currentTarget as HTMLButtonElement
+        const originalLabel = button.textContent
+        button.disabled = true
+        button.textContent = 'Recherche en cours…'
+        try {
+          const suggestions = await window.api.suggestSpeakerNames(id)
+          const entries = Object.entries(suggestions)
+          if (entries.length === 0) {
+            statusEl.textContent = "Aucune auto-présentation repérée dans le texte."
+            return
+          }
+          for (const [speaker, name] of entries) {
+            const input = body.querySelector<HTMLInputElement>(
+              `.speaker-rename-input[data-speaker="${speaker}"]`
+            )
+            if (input && !input.value.trim()) input.value = name
+          }
+          statusEl.textContent = `${entries.length} suggestion(s) trouvée(s) — vérifie puis clique sur Appliquer.`
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error)
+          statusEl.textContent = `Erreur lors de la suggestion : ${message}`
+        } finally {
+          button.disabled = false
+          button.textContent = originalLabel
+        }
       })
 
       body.querySelector('.term-correct-apply')?.addEventListener('click', async () => {

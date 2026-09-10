@@ -20,7 +20,7 @@ import { join } from 'path'
 import { processTranscript } from './cleanup'
 import { clearEnvKeys, loadEnv } from './env'
 import { markdownLiteToHtml } from './markdown'
-import { summarizeMeeting } from './meeting-summary'
+import { suggestSpeakerNames, summarizeMeeting } from './meeting-summary'
 import { getProjectVocabulary } from './project-vocab'
 import { hasEncryptedKeys, loadEncryptedKeys, saveEncryptedKeys } from './secureKeys'
 import { showToast } from './toast'
@@ -703,6 +703,12 @@ ipcMain.handle('meeting:import-audio', async () => {
   } else {
     const filePaths = naturalSort(result.filePaths)
     const transcriptParts: string[] = []
+    // Chaque fichier est diarisé séparément par Deepgram, donc "Intervenant 0"
+    // du fichier 1 n'a aucun rapport avec "Intervenant 0" du fichier 2 — sans
+    // ce décalage, renommer un numéro renommerait par erreur deux personnes
+    // différentes en même temps. On numérote donc les intervenants en continu
+    // sur l'ensemble des fichiers plutôt que de repartir de 0 à chaque fois.
+    let speakerOffset = 0
     for (let i = 0; i < filePaths.length; i++) {
       const filePath = filePaths[i]
       const audio = await readFile(filePath)
@@ -714,10 +720,14 @@ ipcMain.handle('meeting:import-audio', async () => {
         vocabulary,
         mimeType
       )
-      const transcript = segments.map((s) => `Intervenant ${s.speaker} : ${s.text}`).join('\n')
+      const transcript = segments
+        .map((s) => `Intervenant ${s.speaker + speakerOffset} : ${s.text}`)
+        .join('\n')
       transcriptParts.push(
         language === 'en' ? `--- Recording ${i + 1} ---\n\n${transcript}` : `--- Enregistrement ${i + 1} ---\n\n${transcript}`
       )
+      const maxSpeaker = segments.reduce((max, s) => Math.max(max, s.speaker), -1)
+      speakerOffset += maxSpeaker + 1
     }
     const transcript = transcriptParts.join('\n\n')
     const summary = await summarizeMeeting(transcript, process.env.GROQ_API_KEY, language)
@@ -818,6 +828,22 @@ ipcMain.handle('meeting:resummarize', async (_event, id: number) => {
   await writeFile(entry.filePath, newContent, 'utf-8')
 
   return { summary }
+})
+
+// Aide au renommage des intervenants sans avoir à écouter l'audio (utile en
+// particulier pour un import multi-fichiers, qui n'a pas de lecteur audio) :
+// repère les auto-présentations dans le texte et propose un nom par numéro
+// — uniquement des suggestions, jamais appliquées sans confirmation.
+ipcMain.handle('meeting:suggest-speaker-names', async (_event, id: number) => {
+  const entry = getMeetings().find((m) => m.id === id)
+  if (!entry) return {}
+
+  const raw = await readFile(entry.filePath, 'utf-8')
+  const marker = '## Transcript complet\n\n'
+  const markerIndex = raw.indexOf(marker)
+  const transcript = markerIndex !== -1 ? raw.slice(markerIndex + marker.length) : ''
+
+  return suggestSpeakerNames(transcript, process.env.GROQ_API_KEY, getMeetingLanguage())
 })
 
 ipcMain.handle(
