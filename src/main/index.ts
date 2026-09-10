@@ -682,6 +682,8 @@ ipcMain.handle('meeting:import-audio', async () => {
   const language = getMeetingLanguage()
   const vocabulary = getEffectiveListVocabulary()
 
+  let saved: { filePath: string; id: number; title: string; audioPath?: string }
+
   if (result.filePaths.length === 1) {
     const filePath = result.filePaths[0]
     const audio = await readFile(filePath)
@@ -697,30 +699,37 @@ ipcMain.handle('meeting:import-audio', async () => {
     const transcript = segments.map((s) => `Intervenant ${s.speaker} : ${s.text}`).join('\n')
     const summary = await summarizeMeeting(transcript, process.env.GROQ_API_KEY, language)
     const extension = filePath.split('.').pop()?.toLowerCase() || 'audio'
-    return persistMeeting(transcript, summary, 0, true, { buffer: audio, extension }, segments)
+    saved = await persistMeeting(transcript, summary, 0, true, { buffer: audio, extension }, segments)
+  } else {
+    const filePaths = naturalSort(result.filePaths)
+    const transcriptParts: string[] = []
+    for (let i = 0; i < filePaths.length; i++) {
+      const filePath = filePaths[i]
+      const audio = await readFile(filePath)
+      const mimeType = guessAudioMimeType(filePath)
+      const segments = await transcribeMeetingChunk(
+        audio,
+        process.env.DEEPGRAM_API_KEY ?? '',
+        language,
+        vocabulary,
+        mimeType
+      )
+      const transcript = segments.map((s) => `Intervenant ${s.speaker} : ${s.text}`).join('\n')
+      transcriptParts.push(
+        language === 'en' ? `--- Recording ${i + 1} ---\n\n${transcript}` : `--- Enregistrement ${i + 1} ---\n\n${transcript}`
+      )
+    }
+    const transcript = transcriptParts.join('\n\n')
+    const summary = await summarizeMeeting(transcript, process.env.GROQ_API_KEY, language)
+    saved = await persistMeeting(transcript, summary, 0, true)
   }
 
-  const filePaths = naturalSort(result.filePaths)
-  const transcriptParts: string[] = []
-  for (let i = 0; i < filePaths.length; i++) {
-    const filePath = filePaths[i]
-    const audio = await readFile(filePath)
-    const mimeType = guessAudioMimeType(filePath)
-    const segments = await transcribeMeetingChunk(
-      audio,
-      process.env.DEEPGRAM_API_KEY ?? '',
-      language,
-      vocabulary,
-      mimeType
-    )
-    const transcript = segments.map((s) => `Intervenant ${s.speaker} : ${s.text}`).join('\n')
-    transcriptParts.push(
-      language === 'en' ? `--- Recording ${i + 1} ---\n\n${transcript}` : `--- Enregistrement ${i + 1} ---\n\n${transcript}`
-    )
-  }
-  const transcript = transcriptParts.join('\n\n')
-  const summary = await summarizeMeeting(transcript, process.env.GROQ_API_KEY, language)
-  return persistMeeting(transcript, summary, 0, true)
+  // Un import audio peut prendre plusieurs minutes (transcription + résumé,
+  // potentiellement découpé en plusieurs appels) — la fenêtre est souvent
+  // réduite entre-temps, d'où une notification distincte de la fin de
+  // dictée classique (bip différent, déclenché côté renderer).
+  notify(`🎵 Import audio terminé — « ${saved.title} » est prêt ✅`)
+  return saved
 })
 
 ipcMain.handle('meeting:list', () => getMeetings())

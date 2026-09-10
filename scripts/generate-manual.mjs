@@ -317,6 +317,9 @@ const html = `<!doctype html>
   <h1 class="section-title">9. Notifications</h1>
   <p>De petites notifications discrètes (et non les notifications Windows natives, plus larges)
   confirment le démarrage, la fin et le résultat d'une transcription, même fenêtre réduite.</p>
+  <p>Pour un <b>import audio</b> de réunion (qui peut prendre plusieurs minutes), la fin de traitement est
+  signalée par un carillon à deux notes ascendantes — volontairement différent du bip de dictée classique
+  (un seul ton) pour ne pas les confondre — accompagné d'une notification si la fenêtre est réduite.</p>
 </section>
 
 <section>

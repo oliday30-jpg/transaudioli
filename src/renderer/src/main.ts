@@ -127,6 +127,14 @@ function beep(frequency: number, durationMs: number): void {
   oscillator.stop(ctx.currentTime + durationMs / 1000)
 }
 
+// Carillon à deux notes ascendantes — volontairement distinct des bips de
+// dictée (un seul ton, 880/440 Hz) pour signaler la fin d'une transcription
+// longue (import audio) sans confusion avec un raccourci de dictée classique.
+function playImportDoneChime(): void {
+  beep(660, 130)
+  setTimeout(() => beep(990, 180), 140)
+}
+
 function stopSilenceWatch(): void {
   if (silenceCheckInterval) clearInterval(silenceCheckInterval)
   if (silenceTimer) clearTimeout(silenceTimer)
@@ -1418,6 +1426,7 @@ meetingImportAudioEl.addEventListener('click', async () => {
     if (result) {
       meetingImportPanelEl.style.display = 'none'
       statusEl.textContent = 'Fichier audio importé et résumé ✅'
+      playImportDoneChime()
       await loadMeetingList()
       document.getElementById('section-meeting-list')!.classList.add('open')
     }
