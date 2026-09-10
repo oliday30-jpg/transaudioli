@@ -452,6 +452,12 @@ const html = `<!doctype html>
   fichier audio existant (.m4a, .mp3, .wav…) plutôt que d'un texte déjà transcrit — par exemple la piste
   audio exportée d'une note Notability sur iPad. Le fichier est envoyé à la transcription avec
   diarisation, comme pour une vraie réunion enregistrée dans l'app.</p>
+  <p><b>Plusieurs fichiers à la fois</b> : si une même note Notability a été découpée en plusieurs
+  enregistrements (ex. « Recording 1 » et « Recording 2 » après une pause), ils peuvent être sélectionnés
+  ensemble dans la fenêtre de choix de fichier. Chacun est transcrit séparément puis fusionné en une seule
+  réunion avec un résumé unique couvrant l'ensemble — dans ce cas précis, aucun lecteur audio n'est
+  proposé pour cette réunion (fusionner plusieurs fichiers audio en un seul fichier écoutable
+  demanderait un outil de conversion supplémentaire non inclus dans l'app).</p>
   <p>Dans les deux cas, ce n'est pas une intégration directe avec Notability (aucune passerelle
   automatique n'existe entre les deux applications) : le fichier doit être transféré manuellement.</p>
 

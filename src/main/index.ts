@@ -649,36 +649,78 @@ ipcMain.handle('meeting:pick-text-file', async () => {
   return readFile(result.filePaths[0], 'utf-8')
 })
 
+// Tri naturel plutôt que lexicographique pur, pour que "Recording 2" reste
+// avant "Recording 10" si jamais une note Notability est découpée en plus
+// de deux morceaux — un tri texte simple les mettrait dans le mauvais ordre.
+function naturalSort(paths: string[]): string[] {
+  return [...paths].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }))
+}
+
 // Import d'un fichier audio existant (ex. piste audio exportée d'une note
 // Notability) : diarisé et résumé comme une vraie réunion, en un seul appel
 // — pas de découpage en morceaux comme pour l'enregistrement en direct,
 // Deepgram gère de gros fichiers en une fois contrairement à Whisper (25 Mo
 // max). Un enregistrement extrêmement long pourrait tout de même dépasser
 // ses limites ; l'erreur remonte alors telle quelle au renderer.
+//
+// Plusieurs fichiers peuvent être sélectionnés à la fois (ex. une note
+// Notability découpée en "Recording 1" / "Recording 2") : chacun est
+// transcrit séparément (fusionner les fichiers audio eux-mêmes demanderait
+// un outil de conversion externe), puis les transcripts sont concaténés
+// avec un séparateur visible et résumés en un seul passage. Dans ce cas,
+// aucun lecteur audio n'est proposé (l'identité de l'unique fichier audio à
+// associer à la réunion serait ambiguë) — seul un import à fichier unique
+// conserve l'audio et la synchronisation du transcript.
 ipcMain.handle('meeting:import-audio', async () => {
   if (!mainWindow) return null
   const result = await dialog.showOpenDialog(mainWindow, {
-    properties: ['openFile'],
+    properties: ['openFile', 'multiSelections'],
     filters: [{ name: 'Audio', extensions: ['m4a', 'mp3', 'wav', 'webm', 'ogg', 'mp4', 'aac'] }]
   })
   if (result.canceled || result.filePaths.length === 0) return null
 
-  const filePath = result.filePaths[0]
-  const audio = await readFile(filePath)
-  const mimeType = guessAudioMimeType(filePath)
   const language = getMeetingLanguage()
+  const vocabulary = getEffectiveListVocabulary()
 
-  const segments = await transcribeMeetingChunk(
-    audio,
-    process.env.DEEPGRAM_API_KEY ?? '',
-    language,
-    getEffectiveListVocabulary(),
-    mimeType
-  )
-  const transcript = segments.map((s) => `Intervenant ${s.speaker} : ${s.text}`).join('\n')
+  if (result.filePaths.length === 1) {
+    const filePath = result.filePaths[0]
+    const audio = await readFile(filePath)
+    const mimeType = guessAudioMimeType(filePath)
+
+    const segments = await transcribeMeetingChunk(
+      audio,
+      process.env.DEEPGRAM_API_KEY ?? '',
+      language,
+      vocabulary,
+      mimeType
+    )
+    const transcript = segments.map((s) => `Intervenant ${s.speaker} : ${s.text}`).join('\n')
+    const summary = await summarizeMeeting(transcript, process.env.GROQ_API_KEY, language)
+    const extension = filePath.split('.').pop()?.toLowerCase() || 'audio'
+    return persistMeeting(transcript, summary, 0, true, { buffer: audio, extension }, segments)
+  }
+
+  const filePaths = naturalSort(result.filePaths)
+  const transcriptParts: string[] = []
+  for (let i = 0; i < filePaths.length; i++) {
+    const filePath = filePaths[i]
+    const audio = await readFile(filePath)
+    const mimeType = guessAudioMimeType(filePath)
+    const segments = await transcribeMeetingChunk(
+      audio,
+      process.env.DEEPGRAM_API_KEY ?? '',
+      language,
+      vocabulary,
+      mimeType
+    )
+    const transcript = segments.map((s) => `Intervenant ${s.speaker} : ${s.text}`).join('\n')
+    transcriptParts.push(
+      language === 'en' ? `--- Recording ${i + 1} ---\n\n${transcript}` : `--- Enregistrement ${i + 1} ---\n\n${transcript}`
+    )
+  }
+  const transcript = transcriptParts.join('\n\n')
   const summary = await summarizeMeeting(transcript, process.env.GROQ_API_KEY, language)
-  const extension = filePath.split('.').pop()?.toLowerCase() || 'audio'
-  return persistMeeting(transcript, summary, 0, true, { buffer: audio, extension }, segments)
+  return persistMeeting(transcript, summary, 0, true)
 })
 
 ipcMain.handle('meeting:list', () => getMeetings())
