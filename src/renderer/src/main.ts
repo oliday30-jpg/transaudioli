@@ -1385,22 +1385,21 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
       item.querySelector('.calendar-candidates')?.remove()
 
       const candidates = await window.api.getCalendarCandidates(id)
-      if (candidates.length === 0) {
-        statusEl.textContent = 'Aucun rendez-vous trouvé dans le calendrier autour de cette réunion.'
-        return
-      }
 
       const panel = document.createElement('div')
       panel.className = 'calendar-candidates speaker-rename'
       panel.innerHTML =
-        '<p class="field-hint">Choisir le titre parmi les rendez-vous du calendrier :</p>' +
-        candidates
-          .map(
-            (c, i) =>
-              `<button class="modify-link calendar-candidate" data-index="${i}">${escapeHtml(c.subject)} — ${new Date(c.start).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</button>`
-          )
-          .join('<br>')
+        candidates.length === 0
+          ? '<p class="field-hint">Aucun rendez-vous Outlook trouvé autour de cette réunion (une réunion non planifiée dans Outlook n\'apparaît pas ici). Tu peux taper le titre directement dans le champ.</p>'
+          : '<p class="field-hint">Choisir le titre parmi les rendez-vous du calendrier :</p>' +
+            candidates
+              .map(
+                (c, i) =>
+                  `<button class="modify-link calendar-candidate" data-index="${i}">${escapeHtml(c.subject)} — ${new Date(c.start).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</button>`
+              )
+              .join('<br>')
       item.insertBefore(panel, item.querySelector('.meeting-list-body'))
+      if (candidates.length === 0) return
 
       panel.querySelectorAll<HTMLButtonElement>('.calendar-candidate').forEach((candidateButton) => {
         candidateButton.addEventListener('click', async () => {
