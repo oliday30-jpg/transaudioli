@@ -419,6 +419,12 @@ const html = `<!doctype html>
   accidentelle reste récupérable depuis la Corbeille, comme n'importe quel autre fichier.</p>
   <p>Le titre est <b>librement modifiable</b> : clique dedans et tape ce que tu veux (client, sujet…) — la
   date reste affichée juste à côté séparément, pas besoin de la répéter dans le titre.</p>
+  <p><b>Titre depuis le calendrier Outlook</b> : pour un enregistrement en direct, si un seul rendez-vous
+  Outlook (y compris une réunion Teams planifiée dans Outlook) chevauche la réunion, son objet devient
+  automatiquement le titre. S'il y en a plusieurs, ou pour un import audio, le titre généré reste en place.
+  Le bouton <b>🗓️</b> de chaque réunion affiche les rendez-vous autour de la réunion : clique sur celui
+  qui convient pour l'appliquer. Ta saisie manuelle reste prioritaire et peut toujours être modifiée
+  directement dans le champ titre. Les données du calendrier restent en local sur ce PC.</p>
 
   <h2><span class="icon">🎧</span>Écouter l'audio</h2>
   <p>Quand l'audio original est disponible (réunion enregistrée en direct ou importée depuis un fichier),

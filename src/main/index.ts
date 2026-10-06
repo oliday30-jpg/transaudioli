@@ -20,6 +20,7 @@ import { join } from 'path'
 import { processTranscript } from './cleanup'
 import { clearEnvKeys, loadEnv } from './env'
 import { markdownLiteToHtml } from './markdown'
+import { findCalendarEvents } from './calendar'
 import { suggestSpeakerNames, summarizeMeeting } from './meeting-summary'
 import { getProjectVocabulary } from './project-vocab'
 import { hasEncryptedKeys, loadEncryptedKeys, saveEncryptedKeys } from './secureKeys'
@@ -566,6 +567,11 @@ function deriveMeetingTitle(summary: string, date: Date): string {
   return `Réunion du ${date.toLocaleString('fr-FR')}`
 }
 
+async function matchSingleCalendarSubject(fromMs: number, toMs: number): Promise<string | null> {
+  const events = (await findCalendarEvents(fromMs, toMs)).filter((e) => e.start < toMs && e.end > fromMs)
+  return events.length === 1 ? events[0].subject : null
+}
+
 async function persistMeeting(
   transcript: string,
   summary: string,
@@ -603,7 +609,13 @@ async function persistMeeting(
     await writeFile(segmentsPath, JSON.stringify(segments), 'utf-8')
   }
 
-  const title = deriveMeetingTitle(summary, date)
+  // Titre automatique depuis le calendrier seulement pour un enregistrement
+  // en direct (fenêtre de temps connue) et seulement s'il n'y a qu'un
+  // rendez-vous qui chevauche — sinon on garde le titre généré du résumé
+  // plutôt que de deviner parmi plusieurs candidats.
+  const calendarTitle =
+    !imported && durationMs > 0 ? await matchSingleCalendarSubject(id - durationMs, id) : null
+  const title = calendarTitle ?? deriveMeetingTitle(summary, date)
   addMeetingEntry({ id, title, date: id, durationMs, filePath, imported, audioPath })
 
   return { filePath, id, title, audioPath }
@@ -844,6 +856,20 @@ ipcMain.handle('meeting:suggest-speaker-names', async (_event, id: number) => {
   const transcript = markerIndex !== -1 ? raw.slice(markerIndex + marker.length) : ''
 
   return suggestSpeakerNames(transcript, process.env.GROQ_API_KEY, getMeetingLanguage())
+})
+
+// Liste les rendez-vous du calendrier autour de la réunion, pour que
+// l'utilisateur choisisse le bon titre à la main. Pour un import, la date de
+// référence est celle de l'import (pas forcément celle de la réunion), d'où
+// une fenêtre large d'un jour de chaque côté.
+ipcMain.handle('meeting:calendar-candidates', async (_event, id: number) => {
+  const entry = getMeetings().find((m) => m.id === id)
+  if (!entry) return []
+  const [from, to] = entry.imported
+    ? [entry.date - 86400000, entry.date + 86400000]
+    : [entry.date - entry.durationMs - 2 * 3600000, entry.date + 2 * 3600000]
+  const events = await findCalendarEvents(from, to)
+  return events.sort((a, b) => a.start - b.start)
 })
 
 ipcMain.handle(

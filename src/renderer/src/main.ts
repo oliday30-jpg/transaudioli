@@ -1044,6 +1044,7 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
           <input type="text" class="title meeting-title-input" value="${escapeHtml(entry.title)}" />
           <button class="meeting-export-btn" data-id="${entry.id}" title="Exporter en PDF (compatible Notability)">⬇ PDF</button>
           <button class="meeting-export-email-btn" data-id="${entry.id}" title="Envoyer le résumé par email">✉️</button>
+          <button class="meeting-calendar-btn" data-id="${entry.id}" title="Choisir le titre parmi les rendez-vous du calendrier">🗓️</button>
           <button class="history-delete" data-id="${entry.id}" title="Supprimer">✕</button>
         </div>
         <div class="meeting-list-body" style="display: none"></div>
@@ -1326,7 +1327,7 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
     }
 
     titleRow.addEventListener('click', async (event) => {
-      if ((event.target as HTMLElement).closest('.history-delete, .meeting-export-btn, .meeting-export-email-btn')) return
+      if ((event.target as HTMLElement).closest('.history-delete, .meeting-export-btn, .meeting-export-email-btn, .meeting-calendar-btn')) return
       if (body.style.display !== 'none') {
         body.style.display = 'none'
         return
@@ -1373,6 +1374,46 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
       const savedPath = await window.api.exportMeetingPdf(entry.filePath, entry.title)
       button.textContent = originalLabel
       if (savedPath) statusEl.textContent = `PDF exporté : ${savedPath} ✅`
+    })
+  })
+
+  meetingListBodyEl.querySelectorAll<HTMLButtonElement>('.meeting-calendar-btn').forEach((button) => {
+    button.addEventListener('click', async (event) => {
+      event.stopPropagation()
+      const id = Number(button.dataset.id)
+      const item = button.closest<HTMLDivElement>('.meeting-list-item')!
+      item.querySelector('.calendar-candidates')?.remove()
+
+      const candidates = await window.api.getCalendarCandidates(id)
+      if (candidates.length === 0) {
+        statusEl.textContent = 'Aucun rendez-vous trouvé dans le calendrier autour de cette réunion.'
+        return
+      }
+
+      const panel = document.createElement('div')
+      panel.className = 'calendar-candidates speaker-rename'
+      panel.innerHTML =
+        '<p class="field-hint">Choisir le titre parmi les rendez-vous du calendrier :</p>' +
+        candidates
+          .map(
+            (c, i) =>
+              `<button class="modify-link calendar-candidate" data-index="${i}">${escapeHtml(c.subject)} — ${new Date(c.start).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</button>`
+          )
+          .join('<br>')
+      item.insertBefore(panel, item.querySelector('.meeting-list-body'))
+
+      panel.querySelectorAll<HTMLButtonElement>('.calendar-candidate').forEach((candidateButton) => {
+        candidateButton.addEventListener('click', async () => {
+          const chosen = candidates[Number(candidateButton.dataset.index)]
+          const entry = currentMeetings.find((m) => m.id === id)
+          if (entry) entry.title = chosen.subject
+          await window.api.updateMeetingTitle(id, chosen.subject)
+          const titleInput = item.querySelector<HTMLInputElement>('.meeting-title-input')
+          if (titleInput) titleInput.value = chosen.subject
+          panel.remove()
+          statusEl.textContent = 'Titre mis à jour depuis le calendrier ✅'
+        })
+      })
     })
   })
 
