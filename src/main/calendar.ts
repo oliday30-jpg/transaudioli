@@ -22,7 +22,7 @@ $calendar = $outlook.GetNamespace('MAPI').GetDefaultFolder(9)
 $items = $calendar.Items
 $items.IncludeRecurrences = $true
 $items.Sort('[Start]')
-$filter = "[Start] <= '" + $hi.ToString('MM/dd/yyyy HH:mm') + "' AND [End] >= '" + $lo.ToString('MM/dd/yyyy HH:mm') + "'"
+$filter = "[Start] <= '" + $hi.ToString('g') + "' AND [End] >= '" + $lo.ToString('g') + "'"
 $found = @()
 foreach ($item in $items.Restrict($filter)) {
   if (-not $item.Subject) { continue }
