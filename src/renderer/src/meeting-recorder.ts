@@ -6,9 +6,22 @@
 // enregistreur démarre avant que l'ancien s'arrête — pour qu'un mot prononcé
 // pile à la jointure ne soit jamais perdu (validé par test : sans ça, un
 // segment sur trois environ perd son tout début).
+//
+// Ces segments de transcription sont chacun un fichier WebM indépendant et
+// complet (nouvel objet MediaRecorder à chaque tranche) — parfait pour les
+// envoyer un par un à la transcription, mais les recoller bout à bout ne
+// produit PAS un flux WebM valide pour une écoute complète : seul le premier
+// segment reste lisible, le reste est ignoré par tout lecteur standard (bug
+// réel découvert sur une réunion de 107 min, où Deepgram ne retrouvait que
+// les 3 premières minutes dans le fichier "complet" sauvegardé). L'audio
+// destiné à l'écoute/la sauvegarde est donc enregistré séparément par un
+// second MediaRecorder, démarré une seule fois et jamais interrompu avant la
+// fin de la réunion — ses morceaux périodiques appartiennent au même flux
+// continu et peuvent être recollés sans corrompre le conteneur.
 
 const DEFAULT_CHUNK_DURATION_MS = 3 * 60 * 1000
 const DEFAULT_OVERLAP_MS = 800
+const FULL_RECORDING_TIMESLICE_MS = 5000
 
 export interface MeetingRecorderOptions {
   chunkDurationMs?: number
@@ -18,7 +31,9 @@ export interface MeetingRecorderOptions {
 }
 
 export interface MeetingRecorderHandle {
-  stop: () => Promise<void>
+  // Résout avec l'enregistrement complet et continu de la réunion (flux WebM
+  // valide, contrairement aux segments de transcription pris isolément).
+  stop: () => Promise<Blob>
 }
 
 function startSegment(
@@ -56,6 +71,14 @@ export async function startMeetingRecording(
 
   const tracksToStop = [...micStream.getTracks(), ...systemStream.getTracks()]
 
+  const fullParts: Blob[] = []
+  const fullRecorder = new MediaRecorder(destination.stream, { mimeType: 'audio/webm;codecs=opus' })
+  fullRecorder.ondataavailable = (event) => {
+    if (event.data.size > 0) fullParts.push(event.data)
+  }
+  fullRecorder.onerror = (event) => onError(new Error(`MediaRecorder (complet): ${(event as ErrorEvent).message}`))
+  fullRecorder.start(FULL_RECORDING_TIMESLICE_MS)
+
   let currentRecorder = startSegment(destination.stream, options.onChunkReady, onError)
 
   const chunkTimer = setInterval(() => {
@@ -66,15 +89,18 @@ export async function startMeetingRecording(
 
   return {
     stop: () =>
-      new Promise<void>((resolve) => {
+      new Promise<Blob>((resolve) => {
         clearInterval(chunkTimer)
         const recorderToStop = currentRecorder
         const originalOnStop = recorderToStop.onstop as () => void
         recorderToStop.onstop = () => {
           originalOnStop.call(recorderToStop)
-          tracksToStop.forEach((track) => track.stop())
-          audioContext.close()
-          resolve()
+          fullRecorder.onstop = () => {
+            tracksToStop.forEach((track) => track.stop())
+            audioContext.close()
+            resolve(new Blob(fullParts, { type: 'audio/webm' }))
+          }
+          fullRecorder.stop()
         }
         recorderToStop.stop()
       })

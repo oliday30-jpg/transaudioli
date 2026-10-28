@@ -516,6 +516,10 @@ const html = `<!doctype html>
       avant un usage professionnel réel, indépendamment de ce que permet l'outil techniquement.</li>
     <li>L'export email ne joint pas de fichier (limite du protocole <code>mailto:</code>, pas de l'app) et
       peut tronquer un résumé exceptionnellement long selon le client mail utilisé.</li>
+    <li>Un bug corrigé en v0.17.0 limitait la lecture audio sauvegardée des réunions <b>enregistrées en
+      direct</b> à ses 3 premières minutes environ (le transcript, lui, n'était pas affecté). Les réunions
+      enregistrées avant cette version gardent cette limite — seules les nouvelles réunions ont un audio
+      entièrement écoutable.</li>
   </ul>
 </section>
 

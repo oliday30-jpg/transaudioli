@@ -787,12 +787,6 @@ let meetingSegments: MeetingSegment[] = []
 let meetingStartedAt = 0
 let meetingTimerInterval: ReturnType<typeof setInterval> | null = null
 let pendingMeetingChunks = 0
-// Conservés pour recoller un fichier audio complet à la fin — permet
-// d'écouter la réunion en parallèle du transcript (identifier les
-// intervenants plus facilement). Les morceaux se chevauchent légèrement
-// (voir meeting-recorder.ts) donc le fichier recollé a de très courts
-// passages en double aux jointures, acceptable pour de l'écoute.
-let recordedChunkBlobs: Blob[] = []
 
 const meetingToggleBtn = document.querySelector<HTMLButtonElement>('#meeting-toggle')!
 const meetingTimerEl = document.querySelector<HTMLSpanElement>('#meeting-timer')!
@@ -866,7 +860,6 @@ function renderMarkdownLite(markdown: string): string {
 async function startMeeting(): Promise<void> {
   meetingSegments = []
   pendingMeetingChunks = 0
-  recordedChunkBlobs = []
   meetingLiveEl.innerHTML = ''
   meetingResultEl.style.display = 'none'
   meetingResultEl.innerHTML = ''
@@ -879,7 +872,6 @@ async function startMeeting(): Promise<void> {
     chunkDurationMs: MEETING_CHUNK_DURATION_MS,
     onChunkReady: async (blob) => {
       pendingMeetingChunks++
-      recordedChunkBlobs.push(blob)
       const buffer = await blob.arrayBuffer()
       window.api.sendMeetingChunk(buffer)
     },
@@ -920,7 +912,11 @@ async function stopMeeting(): Promise<void> {
   meetingToggleBtn.disabled = true
   meetingToggleBtn.textContent = 'Finalisation…'
 
-  await meetingHandle.stop()
+  // L'enregistrement complet (continu, jamais interrompu pendant la réunion)
+  // vient directement de stop() — ce n'est plus un recollage des tranches de
+  // transcription, qui ne forme pas un flux WebM valide au-delà de la
+  // première (voir meeting-recorder.ts).
+  const fullRecordingBlob = await meetingHandle.stop()
   meetingHandle = null
   if (meetingTimerInterval) clearInterval(meetingTimerInterval)
 
@@ -935,15 +931,13 @@ async function stopMeeting(): Promise<void> {
 
   const summary = await window.api.summarizeMeeting(fullTranscript)
   const durationMs = Date.now() - meetingStartedAt
-  const audioBuffer =
-    recordedChunkBlobs.length > 0 ? await new Blob(recordedChunkBlobs, { type: 'audio/webm' }).arrayBuffer() : undefined
+  const audioBuffer = fullRecordingBlob.size > 0 ? await fullRecordingBlob.arrayBuffer() : undefined
   const { filePath: savedPath, title: savedTitle } = await window.api.saveMeeting({
     transcript: fullTranscript,
     summary,
     durationMs,
     audioBuffer
   })
-  recordedChunkBlobs = []
 
   meetingResultEl.innerHTML = `
     <div class="meeting-summary">${renderMarkdownLite(summary)}</div>
