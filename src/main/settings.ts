@@ -271,6 +271,18 @@ export function updateMeetingTitle(id: number, title: string): void {
   )
 }
 
+export function clearMeetingAudioPath(id: number): void {
+  const meetings = store.get('meetings')
+  store.set(
+    'meetings',
+    meetings.map((entry) => {
+      if (entry.id !== id) return entry
+      const { audioPath, ...rest } = entry
+      return rest
+    })
+  )
+}
+
 export function getMeetingRetentionDays(): number {
   return store.get('meetingRetentionDays')
 }

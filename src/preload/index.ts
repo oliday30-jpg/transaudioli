@@ -150,11 +150,19 @@ const api = {
   },
   summarizeMeeting: (transcript: string): Promise<string> =>
     ipcRenderer.invoke('meeting:summarize', transcript),
+  onSummaryProgress: (callback: (current: number, total: number) => void): void => {
+    ipcRenderer.on('meeting:summary-progress', (_event, data: { current: number; total: number }) =>
+      callback(data.current, data.total)
+    )
+  },
+  rediarizeFullAudio: (audioBuffer: ArrayBuffer): Promise<DiarizedSegment[]> =>
+    ipcRenderer.invoke('meeting:rediarize-full-audio', audioBuffer),
   saveMeeting: (data: {
     transcript: string
     summary: string
     durationMs: number
     audioBuffer?: ArrayBuffer
+    segments?: DiarizedSegment[]
   }): Promise<{ filePath: string; id: number; title: string; audioPath?: string }> =>
     ipcRenderer.invoke('meeting:save', data),
   getMeetingAudio: (audioPath: string): Promise<ArrayBuffer> => ipcRenderer.invoke('meeting:get-audio', audioPath),
@@ -180,6 +188,7 @@ const api = {
   getCalendarCandidates: (id: number): Promise<{ subject: string; start: number; end: number }[]> =>
     ipcRenderer.invoke('meeting:calendar-candidates', id),
   deleteMeeting: (id: number): Promise<void> => ipcRenderer.invoke('meeting:delete', id),
+  deleteMeetingAudio: (id: number): Promise<void> => ipcRenderer.invoke('meeting:delete-audio', id),
   exportMeetingPdf: (filePath: string, title: string): Promise<string | null> =>
     ipcRenderer.invoke('meeting:export-pdf', { filePath, title }),
   exportMeetingEmail: (filePath: string, title: string): Promise<void> =>

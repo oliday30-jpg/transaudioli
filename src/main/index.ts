@@ -31,6 +31,7 @@ import {
   addMeetingEntry,
   addUsageSeconds,
   clearHistory,
+  clearMeetingAudioPath,
   getCostRates,
   getEffectiveListVocabulary,
   getHistory,
@@ -545,8 +546,30 @@ ipcMain.on('meeting:chunk', async (event, buffer: ArrayBuffer) => {
   }
 })
 
-ipcMain.handle('meeting:summarize', (_event, transcript: string) =>
-  summarizeMeeting(transcript, process.env.GROQ_API_KEY, getMeetingLanguage())
+// Repasse l'enregistrement complet d'une réunion en direct en une seule fois
+// à la fin, plutôt que de garder le transcript construit morceau par morceau
+// pendant la réunion (3 min à la fois) : chaque appel à Deepgram numérote ses
+// intervenants indépendamment, donc "Intervenant 0" du premier morceau n'est
+// pas forcément la même personne que "Intervenant 0" du deuxième. Un seul
+// passage sur tout l'audio donne une numérotation cohérente de bout en bout
+// (comme pour un import de fichier) et des horodatages utilisables pour la
+// synchronisation audio/transcript. Coût : environ le double en minutes
+// Deepgram facturées pour une réunion en direct (le direct + ce second
+// passage), accepté explicitement par l'utilisateur pour ce gain de qualité.
+ipcMain.handle('meeting:rediarize-full-audio', (_event, audioBuffer: ArrayBuffer) =>
+  transcribeMeetingChunk(
+    Buffer.from(audioBuffer),
+    process.env.DEEPGRAM_API_KEY ?? '',
+    getMeetingLanguage(),
+    getEffectiveListVocabulary(),
+    'audio/webm'
+  )
+)
+
+ipcMain.handle('meeting:summarize', (event, transcript: string) =>
+  summarizeMeeting(transcript, process.env.GROQ_API_KEY, getMeetingLanguage(), (current, total) =>
+    event.sender.send('meeting:summary-progress', { current, total })
+  )
 )
 
 // Titre auto : première phrase du résumé généré (## Résumé / ## Summary),
@@ -629,15 +652,23 @@ ipcMain.handle(
       transcript,
       summary,
       durationMs,
-      audioBuffer
-    }: { transcript: string; summary: string; durationMs: number; audioBuffer?: ArrayBuffer }
+      audioBuffer,
+      segments
+    }: {
+      transcript: string
+      summary: string
+      durationMs: number
+      audioBuffer?: ArrayBuffer
+      segments?: DiarizedSegment[]
+    }
   ) =>
     persistMeeting(
       transcript,
       summary,
       durationMs,
       false,
-      audioBuffer ? { buffer: Buffer.from(audioBuffer), extension: 'webm' } : undefined
+      audioBuffer ? { buffer: Buffer.from(audioBuffer), extension: 'webm' } : undefined,
+      segments
     )
 )
 
@@ -646,8 +677,10 @@ ipcMain.handle(
 // appliquer notre résumé IA et le retrouver au même endroit que les réunions
 // enregistrées directement dans l'app. Pas de diarisation ici puisqu'on ne
 // repart pas de l'audio — juste le texte fourni.
-ipcMain.handle('meeting:import', async (_event, { transcript }: { transcript: string }) => {
-  const summary = await summarizeMeeting(transcript, process.env.GROQ_API_KEY, getMeetingLanguage())
+ipcMain.handle('meeting:import', async (event, { transcript }: { transcript: string }) => {
+  const summary = await summarizeMeeting(transcript, process.env.GROQ_API_KEY, getMeetingLanguage(), (current, total) =>
+    event.sender.send('meeting:summary-progress', { current, total })
+  )
   return persistMeeting(transcript, summary, 0, true)
 })
 
@@ -709,7 +742,9 @@ ipcMain.handle('meeting:import-audio', async () => {
       mimeType
     )
     const transcript = segments.map((s) => `Intervenant ${s.speaker} : ${s.text}`).join('\n')
-    const summary = await summarizeMeeting(transcript, process.env.GROQ_API_KEY, language)
+    const summary = await summarizeMeeting(transcript, process.env.GROQ_API_KEY, language, (current, total) =>
+      mainWindow?.webContents.send('meeting:summary-progress', { current, total })
+    )
     const extension = filePath.split('.').pop()?.toLowerCase() || 'audio'
     saved = await persistMeeting(transcript, summary, 0, true, { buffer: audio, extension }, segments)
   } else {
@@ -742,7 +777,9 @@ ipcMain.handle('meeting:import-audio', async () => {
       speakerOffset += maxSpeaker + 1
     }
     const transcript = transcriptParts.join('\n\n')
-    const summary = await summarizeMeeting(transcript, process.env.GROQ_API_KEY, language)
+    const summary = await summarizeMeeting(transcript, process.env.GROQ_API_KEY, language, (current, total) =>
+      mainWindow?.webContents.send('meeting:summary-progress', { current, total })
+    )
     saved = await persistMeeting(transcript, summary, 0, true)
   }
 
@@ -851,7 +888,7 @@ ipcMain.handle('meeting:update-title', (_event, { id, title }: { id: number; tit
 // à réessayer après un échec (clé API, panne réseau) sans tout retranscrire,
 // ou simplement pour relancer avec un contenu de transcript modifié à la main.
 // Ne touche jamais au titre : une fois retitré à la main, ça reste tel quel.
-ipcMain.handle('meeting:resummarize', async (_event, id: number) => {
+ipcMain.handle('meeting:resummarize', async (event, id: number) => {
   const entry = getMeetings().find((m) => m.id === id)
   if (!entry) return null
 
@@ -861,7 +898,9 @@ ipcMain.handle('meeting:resummarize', async (_event, id: number) => {
   const transcript = markerIndex !== -1 ? raw.slice(markerIndex + marker.length) : ''
   const headingLine = raw.split('\n')[0]
 
-  const summary = await summarizeMeeting(transcript, process.env.GROQ_API_KEY, getMeetingLanguage())
+  const summary = await summarizeMeeting(transcript, process.env.GROQ_API_KEY, getMeetingLanguage(), (current, total) =>
+    event.sender.send('meeting:summary-progress', { current, total })
+  )
   const newContent = `${headingLine}\n\n${summary}\n\n---\n\n${marker}${transcript}`
   await backupMeetingFile(entry.filePath)
   await writeFile(entry.filePath, newContent, 'utf-8')
@@ -1010,6 +1049,26 @@ async function deleteMeetingById(id: number): Promise<void> {
 }
 
 ipcMain.handle('meeting:delete', (_event, id: number) => deleteMeetingById(id))
+
+// Garde le transcript et le résumé, mais retire juste l'audio (le plus gros
+// fichier d'une réunion, ~55 Mo/heure) — pour une vieille réunion dont seul
+// le compte-rendu compte encore, sans vouloir supprimer toute la réunion.
+// Les horodatages par intervenant (segments.json) n'ont plus de sens sans
+// l'audio à synchroniser, donc ils partent avec — le transcript reste
+// affiché normalement, juste sans surlignage ni bouton 🔊.
+ipcMain.handle('meeting:delete-audio', async (_event, id: number) => {
+  const entry = getMeetings().find((m) => m.id === id)
+  if (!entry || !entry.audioPath) return
+  const segmentsPath = entry.filePath.replace(/\.md$/, '.segments.json')
+  for (const path of [entry.audioPath, segmentsPath]) {
+    try {
+      await shell.trashItem(path)
+    } catch {
+      // Déjà absent — on nettoie l'entrée quand même.
+    }
+  }
+  clearMeetingAudioPath(id)
+})
 
 // Purge automatique : supprime les réunions plus vieilles que le délai de
 // rétention configuré (0 = désactivé). Lancée une fois au démarrage — une

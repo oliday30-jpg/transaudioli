@@ -432,12 +432,16 @@ const html = `<!doctype html>
   transcript et identifier plus facilement qui a dit quoi avant de renommer les intervenants. Pour les
   réunions enregistrées avant cette fonctionnalité, aucun lecteur n'apparaît (l'audio n'a jamais été
   conservé).</p>
-  <p>Pour les <b>imports de fichier audio</b>, le transcript se surligne automatiquement ligne par ligne
-  pendant la lecture — la phrase en train d'être prononcée s'illumine en direct, et cliquer sur une ligne
-  déplace la lecture à ce moment précis. Très utile pour repérer rapidement qui est « Intervenant 0 »
-  avant de le renommer. Cette synchronisation n'est pas (encore) disponible pour les réunions enregistrées
-  en direct, où le découpage en morceaux rend le numéro d'intervenant incohérent d'un morceau à l'autre
-  (voir « Limites connues » plus bas).</p>
+  <p>Le transcript se surligne automatiquement ligne par ligne pendant la lecture — la phrase en train
+  d'être prononcée s'illumine en direct, et cliquer sur une ligne déplace la lecture à ce moment précis.
+  Très utile pour repérer rapidement qui est « Intervenant 0 » avant de le renommer.</p>
+  <p>Pour une réunion <b>enregistrée en direct</b>, l'enregistrement complet est repassé une seconde fois
+  en entier à la diarisation dès la fin de la réunion (juste avant la génération du résumé), plutôt que de
+  garder le texte construit morceau par morceau (3 minutes à la fois) pendant la réunion : un seul passage
+  sur tout l'audio donne une numérotation d'intervenants cohérente de bout en bout, comme pour un import de
+  fichier, et permet la même synchronisation audio/transcript. Ce second passage coûte environ le double en
+  minutes Deepgram facturées pour une réunion en direct ; en cas d'échec (panne réseau…), le texte construit
+  pendant la réunion est gardé tel quel, sans synchronisation.</p>
 
   <h2><span class="icon">✏️</span>Édition, renommage &amp; correction de termes</h2>
   <p>Dans une réunion dépliée, un bouton <b>✏️ Modifier</b> permet de corriger librement le texte du
@@ -495,6 +499,17 @@ const html = `<!doctype html>
   <p>Un réglage dans Réglages (« Conserver les réunions ») supprime automatiquement les réunions plus
   anciennes que le délai choisi (90 jours par défaut, 0 = jamais) — fichier et entrée dans la liste
   disparaissent ensemble, au démarrage de l'application.</p>
+  <p>Pour une réunion précise sans tout supprimer, le bouton <b>🗑️ Supprimer l'audio, garder le texte</b>
+  (dans la réunion dépliée, visible seulement si un audio est présent) retire uniquement le fichier audio
+  — de loin le plus gros (environ 55 Mo/heure) — en l'envoyant dans la Corbeille Windows. Le transcript et
+  le résumé restent intacts et consultables normalement, juste sans lecteur audio ni surlignage synchronisé.</p>
+
+  <h2><span class="icon">⏳</span>Progression du résumé</h2>
+  <p>Un transcript long (réunion d'une heure ou plus) est découpé en plusieurs morceaux avant d'être résumé,
+  pour rester sous la limite de débit du fournisseur IA — ce qui peut prendre plusieurs minutes. La barre de
+  statut en haut de l'application affiche la progression pendant cette attente (« Génération du résumé…
+  (morceau 2/5) ») plutôt qu'un message figé, pour une réunion en direct terminée, un import, ou une
+  régénération de résumé.</p>
 
   <h2><span class="icon">📄</span>Export PDF</h2>
   <p>Chaque réunion (depuis la liste, ou juste après l'avoir terminée) peut être exportée en PDF via le
@@ -515,11 +530,6 @@ const html = `<!doctype html>
   <ul>
     <li>La diarisation identifie des <i>numéros</i> d'intervenants au départ — le renommage manuel comble
       cette limite après coup, mais rien n'associe automatiquement un numéro à un nom.</li>
-    <li>Pour une réunion <b>enregistrée en direct</b> (découpée en morceaux de 3 minutes envoyés
-      séparément à la transcription), le numéro d'un intervenant n'est <i>pas garanti</i> de rester le
-      même d'un morceau à l'autre — « Intervenant 0 » du premier morceau peut être une personne
-      différente d'« Intervenant 0 » du deuxième. Les imports de fichier audio (un seul passage sur tout
-      le fichier) n'ont pas ce problème.</li>
     <li>Enregistrer un appel (surtout externe, avec des clients ou partenaires) soulève des questions de
       confidentialité — consentement des participants, politique interne de l'entreprise — à vérifier
       avant un usage professionnel réel, indépendamment de ce que permet l'outil techniquement.</li>

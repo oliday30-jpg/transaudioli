@@ -221,7 +221,8 @@ export async function suggestSpeakerNames(
 export async function summarizeMeeting(
   transcript: string,
   apiKey: string | undefined,
-  language: 'fr' | 'en' = 'fr'
+  language: 'fr' | 'en' = 'fr',
+  onProgress?: (current: number, total: number) => void
 ): Promise<string> {
   if (!transcript.trim()) return transcript
   if (!apiKey) {
@@ -241,14 +242,19 @@ export async function summarizeMeeting(
     // Transcript trop long pour un seul appel : on résume chaque morceau
     // séparément ("map"), puis on fusionne ces résumés partiels en un
     // résumé final structuré ("reduce") — chaque appel espacé assez pour
-    // rester sous le plafond Groq de tokens/minute.
+    // rester sous le plafond Groq de tokens/minute. Cette attente peut durer
+    // plusieurs minutes sur un long transcript : onProgress permet d'afficher
+    // une progression plutôt qu'un message statique figé pendant tout ce temps.
     const digestPrompt = language === 'en' ? CHUNK_DIGEST_SYSTEM_PROMPT_EN : CHUNK_DIGEST_SYSTEM_PROMPT_FR
     const digests: string[] = []
+    const totalSteps = chunks.length + 1
     for (let i = 0; i < chunks.length; i++) {
+      onProgress?.(i + 1, totalSteps)
       const digest = await callGroqChat(apiKey, digestPrompt, wrapTranscript(chunks[i]), DIGEST_MAX_TOKENS)
       digests.push(`[${i + 1}/${chunks.length}] ${digest}`)
     }
 
+    onProgress?.(totalSteps, totalSteps)
     const merged = digests.join('\n\n')
     const content = await callGroqChat(apiKey, finalPrompt, wrapTranscript(merged), SUMMARY_MAX_TOKENS)
     return content || transcript

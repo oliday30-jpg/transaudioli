@@ -907,6 +907,18 @@ window.api.onMeetingChunkError((message) => {
   )
 })
 
+// Un résumé long (transcript découpé en plusieurs morceaux à cause du
+// plafond Groq de tokens/minute) peut prendre plusieurs minutes — sans ça,
+// le seul retour pendant toute cette attente serait un message figé, ce qui
+// donne l'impression que l'application est bloquée.
+window.api.onSummaryProgress((current, total) => {
+  if (current >= total) {
+    statusEl.textContent = 'Finalisation du résumé…'
+  } else {
+    statusEl.textContent = `Génération du résumé… (morceau ${current}/${total})`
+  }
+})
+
 async function stopMeeting(): Promise<void> {
   if (!meetingHandle) return
   meetingToggleBtn.disabled = true
@@ -924,19 +936,43 @@ async function stopMeeting(): Promise<void> {
     await new Promise((r) => setTimeout(r, 300))
   }
 
-  const fullTranscript = meetingSegments.map((s) => `Intervenant ${s.speaker} : ${s.text}`).join('\n')
+  let fullTranscript = meetingSegments.map((s) => `Intervenant ${s.speaker} : ${s.text}`).join('\n')
+  const audioBuffer = fullRecordingBlob.size > 0 ? await fullRecordingBlob.arrayBuffer() : undefined
+  let finalSegments: TimedSegment[] | undefined
+
+  // La numérotation des intervenants construite morceau par morceau pendant
+  // la réunion (un appel Deepgram indépendant toutes les 3 minutes) n'est pas
+  // cohérente d'un morceau à l'autre. Un second passage sur l'enregistrement
+  // complet (maintenant valide de bout en bout, voir meeting-recorder.ts)
+  // redonne une numérotation unique et des horodatages exploitables pour la
+  // synchronisation audio — comme pour un import de fichier. En cas d'échec
+  // (panne réseau, audio trop long…), on garde simplement le transcript du
+  // direct plutôt que de bloquer l'enregistrement de la réunion.
+  if (audioBuffer) {
+    meetingResultEl.style.display = 'block'
+    meetingResultEl.innerHTML = '<p class="empty">Vérification des intervenants sur l\'enregistrement complet…</p>'
+    try {
+      const segments = await window.api.rediarizeFullAudio(audioBuffer)
+      if (segments.length > 0) {
+        finalSegments = segments
+        fullTranscript = segments.map((s) => `Intervenant ${s.speaker} : ${s.text}`).join('\n')
+      }
+    } catch {
+      // Le transcript construit en direct (meetingSegments) sert de repli.
+    }
+  }
 
   meetingResultEl.style.display = 'block'
   meetingResultEl.innerHTML = '<p class="empty">Génération du résumé…</p>'
 
   const summary = await window.api.summarizeMeeting(fullTranscript)
   const durationMs = Date.now() - meetingStartedAt
-  const audioBuffer = fullRecordingBlob.size > 0 ? await fullRecordingBlob.arrayBuffer() : undefined
   const { filePath: savedPath, title: savedTitle } = await window.api.saveMeeting({
     transcript: fullTranscript,
     summary,
     durationMs,
-    audioBuffer
+    audioBuffer,
+    segments: finalSegments
   })
 
   meetingResultEl.innerHTML = `
@@ -1053,7 +1089,7 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
     const entry = currentMeetings.find((m) => m.id === id)
     if (!entry) return
     const filePath = entry.filePath
-    const audioPath = entry.audioPath
+    let audioPath = entry.audioPath
 
     // Pas de stopPropagation ici : le champ occupe presque toute la largeur
     // de la ligne, donc bloquer la propagation empêcherait aussi le clic
@@ -1208,6 +1244,7 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
           <button class="modify-link meeting-resummarize">🔁 Régénérer le résumé</button>
           <button class="modify-link meeting-edit-toggle">✏️ Modifier</button>
           <button class="modify-link meeting-undo">↩ Annuler le dernier changement</button>
+          ${audioPath ? '<button class="modify-link meeting-delete-audio">🗑️ Supprimer l\'audio, garder le texte</button>' : ''}
         </div>
         ${audioPlayer}
         ${renameForm}${termCorrectionForm}<div class="meeting-summary">${renderMarkdownLite(summaryPart)}${transcriptHtml}</div>`
@@ -1292,6 +1329,28 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
           rawContent = restored
           renderBody()
           statusEl.textContent = 'Dernier changement annulé ✅'
+        } finally {
+          button.disabled = false
+          button.textContent = originalLabel
+        }
+      })
+
+      body.querySelector('.meeting-delete-audio')?.addEventListener('click', async (event) => {
+        if (!entry) return
+        const button = event.currentTarget as HTMLButtonElement
+        const confirmed = window.confirm(
+          "Supprimer l'audio de cette réunion ? Le fichier ira dans la Corbeille Windows (récupérable depuis là si besoin). Le transcript et le résumé restent inchangés."
+        )
+        if (!confirmed) return
+        const originalLabel = button.textContent
+        button.disabled = true
+        try {
+          await window.api.deleteMeetingAudio(id)
+          audioPath = undefined
+          entry.audioPath = undefined
+          segments = null
+          renderBody()
+          statusEl.textContent = 'Audio supprimé — transcript et résumé conservés ✅'
         } finally {
           button.disabled = false
           button.textContent = originalLabel
