@@ -1139,11 +1139,20 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
       // renommage (manuel ou suggéré) s'avère faux. Pas de dépendance au
       // format "Intervenant N" : le formulaire reste disponible indéfiniment,
       // avant comme après un premier renommage.
+      const transcriptLines = transcriptPart.split('\n').filter((l) => l.trim())
       const speakerLabels: string[] = []
-      for (const line of transcriptPart.split('\n')) {
+      // Premier instant (en secondes) où chaque label apparaît, pour pouvoir
+      // écouter directement cet intervenant depuis le formulaire — seulement
+      // quand les horodatages s'alignent ligne à ligne avec le transcript
+      // (même condition que le surlignage synchronisé pendant la lecture).
+      const labelFirstStart: Record<string, number> = {}
+      const hasAlignedTimestamps = Boolean(segments && segments.length === transcriptLines.length)
+      transcriptLines.forEach((line, i) => {
         const m = line.match(/^(.{1,40}?) : /)
-        if (m && !speakerLabels.includes(m[1])) speakerLabels.push(m[1])
-      }
+        if (!m) return
+        if (!speakerLabels.includes(m[1])) speakerLabels.push(m[1])
+        if (hasAlignedTimestamps && !(m[1] in labelFirstStart)) labelFirstStart[m[1]] = segments![i].start
+      })
       // Garde-fou : au-delà d'une vingtaine de labels distincts, ce n'est
       // plus de la diarisation mais probablement du bruit (texte édité à la
       // main contenant des ":" en début de ligne) — mieux vaut ne rien
@@ -1159,6 +1168,11 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
                 .map(
                   (label) => `
                 <div class="speaker-rename-row">
+                  ${
+                    audioPath && label in labelFirstStart
+                      ? `<button class="modify-link speaker-listen" data-start="${labelFirstStart[label]}" title="Écouter cet intervenant">🔊</button>`
+                      : ''
+                  }
                   <span>${escapeHtml(label)} →</span>
                   <input type="text" class="speaker-rename-input" data-speaker="${escapeHtml(label)}" placeholder="Nom" />
                 </div>`
@@ -1193,6 +1207,7 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
         <div class="meeting-body-toolbar">
           <button class="modify-link meeting-resummarize">🔁 Régénérer le résumé</button>
           <button class="modify-link meeting-edit-toggle">✏️ Modifier</button>
+          <button class="modify-link meeting-undo">↩ Annuler le dernier changement</button>
         </div>
         ${audioPlayer}
         ${renameForm}${termCorrectionForm}<div class="meeting-summary">${renderMarkdownLite(summaryPart)}${transcriptHtml}</div>`
@@ -1262,6 +1277,34 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
           button.disabled = false
           button.textContent = originalLabel
         }
+      })
+
+      body.querySelector('.meeting-undo')?.addEventListener('click', async (event) => {
+        const button = event.currentTarget as HTMLButtonElement
+        const originalLabel = button.textContent
+        button.disabled = true
+        try {
+          const restored = await window.api.undoLastMeetingChange(filePath)
+          if (restored === null) {
+            statusEl.textContent = 'Rien à annuler — aucun changement récent sur cette réunion.'
+            return
+          }
+          rawContent = restored
+          renderBody()
+          statusEl.textContent = 'Dernier changement annulé ✅'
+        } finally {
+          button.disabled = false
+          button.textContent = originalLabel
+        }
+      })
+
+      body.querySelectorAll<HTMLButtonElement>('.speaker-listen').forEach((button) => {
+        button.addEventListener('click', () => {
+          const audioEl = body.querySelector<HTMLAudioElement>('.meeting-audio-player')
+          if (!audioEl) return
+          audioEl.currentTime = Number(button.dataset.start)
+          audioEl.play()
+        })
       })
 
       body.querySelector('.speaker-rename-apply')?.addEventListener('click', async () => {

@@ -15,7 +15,7 @@ import {
 import { execFile, execFileSync } from 'child_process'
 import { autoUpdater } from 'electron-updater'
 import { existsSync } from 'fs'
-import { appendFile, mkdir, readFile, writeFile } from 'fs/promises'
+import { appendFile, copyFile, mkdir, readFile, unlink, writeFile } from 'fs/promises'
 import { join } from 'path'
 import { processTranscript } from './cleanup'
 import { clearEnvKeys, loadEnv } from './env'
@@ -805,12 +805,38 @@ ipcMain.handle('meeting:search', async (_event, query: string) => {
   return matches
 })
 
+// Sauvegarde glissante à un seul niveau : avant toute réécriture du contenu
+// d'une réunion (renommage, correction de terme, édition libre, régénération
+// du résumé), la version précédente est gardée de côté pour pouvoir revenir
+// en arrière en un clic — après un incident réel où un renommage de test a
+// fait disparaître le texte d'un intervenant sans recours possible.
+async function backupMeetingFile(filePath: string): Promise<void> {
+  try {
+    await copyFile(filePath, `${filePath}.bak`)
+  } catch {
+    // Pas de fichier à sauvegarder (ne devrait pas arriver, le fichier existe
+    // forcément avant une réécriture) — tant pis, on continue sans bloquer.
+  }
+}
+
 // Réécrit le contenu d'une réunion déjà sauvegardée — utilisé pour renommer
 // les intervenants a posteriori (« Intervenant 0 » -> un vrai nom) : le
 // renderer recalcule le texte remplacé et fournit directement le contenu
 // final, le fichier est simplement remplacé tel quel.
 ipcMain.handle('meeting:update-content', async (_event, { filePath, content }: { filePath: string; content: string }) => {
+  await backupMeetingFile(filePath)
   await writeFile(filePath, content, 'utf-8')
+})
+
+// Restaure la version précédente (un seul niveau — pas de pile d'annulation)
+// puis efface la sauvegarde pour éviter un va-et-vient confus si on reclique.
+ipcMain.handle('meeting:undo-last-change', async (_event, filePath: string) => {
+  const backupPath = `${filePath}.bak`
+  if (!existsSync(backupPath)) return null
+  const restored = await readFile(backupPath, 'utf-8')
+  await writeFile(filePath, restored, 'utf-8')
+  await unlink(backupPath)
+  return restored
 })
 
 // Titre libre : contrairement au reste (renommage d'intervenants, correction
@@ -837,6 +863,7 @@ ipcMain.handle('meeting:resummarize', async (_event, id: number) => {
 
   const summary = await summarizeMeeting(transcript, process.env.GROQ_API_KEY, getMeetingLanguage())
   const newContent = `${headingLine}\n\n${summary}\n\n---\n\n${marker}${transcript}`
+  await backupMeetingFile(entry.filePath)
   await writeFile(entry.filePath, newContent, 'utf-8')
 
   return { summary }
@@ -966,7 +993,7 @@ async function deleteMeetingById(id: number): Promise<void> {
   removeMeetingEntry(id)
   if (entry) {
     const segmentsPath = entry.filePath.replace(/\.md$/, '.segments.json')
-    for (const path of [entry.filePath, entry.audioPath, segmentsPath]) {
+    for (const path of [entry.filePath, entry.audioPath, segmentsPath, `${entry.filePath}.bak`]) {
       if (!path) continue
       try {
         // Envoie à la Corbeille Windows plutôt qu'un effacement définitif —

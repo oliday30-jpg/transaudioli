@@ -451,6 +451,15 @@ const html = `<!doctype html>
   (plusieurs fichiers importés ensemble), où identifier les intervenants à l'oreille n'est pas possible.
   Les suggestions ne sont jamais appliquées automatiquement : elles restent à vérifier et confirmer via
   « Appliquer », comme un renommage tapé à la main.</p>
+  <p>Quand l'audio est disponible, un bouton <b>🔊 Écouter cet intervenant</b> apparaît à côté de chaque
+  ligne du formulaire : il déplace directement la lecture audio au premier moment où cette personne parle,
+  sans avoir à chercher dans le transcript — pratique pour reconnaître une voix avant de taper son nom.</p>
+  <p>Toute modification du texte (renommage d'intervenant, correction de terme, édition libre) crée
+  automatiquement une sauvegarde du contenu juste avant d'écrire le changement. Le bouton
+  <b>↩ Annuler le dernier changement</b> restaure ce contenu précédent en un clic — une sécurité en cas de
+  faute de frappe ou de renommage appliqué par erreur. Un seul niveau d'annulation est conservé (le
+  changement juste avant, pas tout l'historique) ; cliquer « Annuler » une seconde fois sans rien modifier
+  entre-temps n'a aucun effet.</p>
   <p>Pour un import audio <b>à plusieurs fichiers</b>, la numérotation des intervenants reste distincte
   d'un fichier à l'autre (chacun est diarisé séparément) — « Intervenant 0 » du premier fichier n'est
   jamais confondu avec « Intervenant 0 » du second, chaque personne garde un numéro unique sur l'ensemble

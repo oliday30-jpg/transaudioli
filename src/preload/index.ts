@@ -169,6 +169,8 @@ const api = {
   openMeeting: (filePath: string): Promise<string> => ipcRenderer.invoke('meeting:open', filePath),
   updateMeetingContent: (filePath: string, content: string): Promise<void> =>
     ipcRenderer.invoke('meeting:update-content', { filePath, content }),
+  undoLastMeetingChange: (filePath: string): Promise<string | null> =>
+    ipcRenderer.invoke('meeting:undo-last-change', filePath),
   updateMeetingTitle: (id: number, title: string): Promise<void> =>
     ipcRenderer.invoke('meeting:update-title', { id, title }),
   resummarizeMeeting: (id: number): Promise<{ summary: string } | null> =>
