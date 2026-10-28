@@ -601,6 +601,17 @@ const updateStatusEl = document.querySelector<HTMLParagraphElement>('#update-sta
 const installUpdateBtn = document.querySelector<HTMLButtonElement>('#install-update')!
 const checkUpdatesBtn = document.querySelector<HTMLButtonElement>('#check-updates')!
 
+// Bandeau tout en haut de l'app (au-dessus des sections repliables) en plus
+// du détail dans Réglages — sinon une mise à jour disponible passe inaperçue
+// tant qu'on ne va pas chercher tout en bas de Réglages pour la voir.
+const updateBannerEl = document.querySelector<HTMLDivElement>('#update-banner')!
+const updateBannerTextEl = document.querySelector<HTMLSpanElement>('#update-banner-text')!
+const updateBannerInstallBtn = document.querySelector<HTMLButtonElement>('#update-banner-install')!
+
+updateBannerInstallBtn.addEventListener('click', () => {
+  window.api.installUpdate()
+})
+
 window.api.getAppVersion().then((version) => {
   appVersionEl.textContent = `Version ${version}`
 })
@@ -618,22 +629,33 @@ window.api.onUpdateStatus((status) => {
   switch (status.state) {
     case 'checking':
       updateStatusEl.textContent = 'Vérification…'
+      updateBannerEl.style.display = 'none'
       break
     case 'up-to-date':
       updateStatusEl.textContent = 'À jour ✅'
+      updateBannerEl.style.display = 'none'
       break
     case 'available':
       updateStatusEl.textContent = `Version ${status.version} disponible — téléchargement…`
+      updateBannerTextEl.textContent = `⬆️ Version ${status.version} disponible — téléchargement en cours…`
+      updateBannerInstallBtn.style.display = 'none'
+      updateBannerEl.style.display = 'flex'
       break
     case 'downloading':
       updateStatusEl.textContent = `Téléchargement… ${status.percent}%`
+      updateBannerTextEl.textContent = `⬆️ Téléchargement de la mise à jour… ${status.percent}%`
+      updateBannerEl.style.display = 'flex'
       break
     case 'downloaded':
       updateStatusEl.textContent = `Version ${status.version} prête à installer.`
       installUpdateBtn.style.display = 'inline-block'
+      updateBannerTextEl.textContent = `⬆️ Version ${status.version} prête à installer.`
+      updateBannerInstallBtn.style.display = 'inline-block'
+      updateBannerEl.style.display = 'flex'
       break
     case 'error':
       updateStatusEl.textContent = `Erreur : ${status.message}`
+      updateBannerEl.style.display = 'none'
       break
   }
 })

@@ -561,6 +561,10 @@ const html = `<!doctype html>
   <p>Dans Réglages, la section <b>Mises à jour</b> affiche la version actuelle et propose un bouton
   <b>Vérifier maintenant</b> pour forcer une vérification immédiate plutôt que d'attendre le prochain
   lancement.</p>
+  <p>Dès qu'une mise à jour est disponible, en téléchargement ou prête à installer, un bandeau apparaît
+  aussi tout en haut de l'application (au-dessus de « Réunion », juste sous le titre) — plus besoin d'ouvrir
+  Réglages et de descendre tout en bas pour s'en rendre compte. Le bandeau disparaît de lui-même une fois
+  qu'il n'y a plus rien à signaler (à jour, ou vérification en cours).</p>
 </section>
 
 <section>

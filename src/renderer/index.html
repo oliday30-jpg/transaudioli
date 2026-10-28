@@ -92,6 +92,23 @@
         gap: 10px;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
       }
+      .update-banner {
+        background: var(--accent-soft);
+        color: var(--accent);
+        border-radius: 10px;
+        padding: 10px 14px;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .update-banner .modify-link {
+        font-weight: 600;
+        white-space: nowrap;
+      }
       .status-row {
         display: flex;
         align-items: center;
@@ -846,6 +863,11 @@
 
     <div class="content">
       <h1>TransAudiOli</h1>
+
+      <div class="update-banner" id="update-banner" style="display: none">
+        <span id="update-banner-text"></span>
+        <button class="modify-link" id="update-banner-install" style="display: none">Redémarrer et installer</button>
+      </div>
 
       <div class="status-card">
         <div class="status-row">
