@@ -441,8 +441,10 @@ const html = `<!doctype html>
 
   <h2><span class="icon">✏️</span>Édition, renommage &amp; correction de termes</h2>
   <p>Dans une réunion dépliée, un bouton <b>✏️ Modifier</b> permet de corriger librement le texte du
-  résumé ou du transcript après coup. Si des « Intervenant N » sont détectés, un petit formulaire propose
-  de les renommer un par un.</p>
+  résumé ou du transcript après coup. Un petit formulaire propose de renommer chaque intervenant détecté
+  un par un — « Intervenant N » au départ, mais aussi un nom déjà appliqué par un renommage précédent :
+  le formulaire reste disponible à tout moment, donc un nom mal attribué (y compris via une suggestion
+  IA fausse) peut être corrigé à nouveau sans limite, même longtemps après coup.</p>
   <p>Le bouton <b>💡 Suggérer les noms</b>, dans ce même formulaire, relance une passe IA sur le début du
   transcript pour repérer les auto-présentations ("Je m'appelle Hank", "My name is Olivier") et
   pré-remplit les champs correspondants — pratique en particulier pour un import sans lecteur audio

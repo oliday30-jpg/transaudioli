@@ -1137,21 +1137,36 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
 
     function renderBody(): void {
       const content = displayContent()
-      const speakerNumbers = [
-        ...new Set([...content.matchAll(/Intervenant (\d+) :/g)].map((m) => Number(m[1])))
-      ].sort((a, b) => a - b)
+      const { summaryPart, transcriptPart } = splitSummaryAndTranscript(content)
+
+      // Détecte les labels "X : " en tout début de ligne du transcript —
+      // "Intervenant N" au départ, mais aussi un nom déjà appliqué par un
+      // renommage précédent, pour pouvoir corriger à nouveau si le premier
+      // renommage (manuel ou suggéré) s'avère faux. Pas de dépendance au
+      // format "Intervenant N" : le formulaire reste disponible indéfiniment,
+      // avant comme après un premier renommage.
+      const speakerLabels: string[] = []
+      for (const line of transcriptPart.split('\n')) {
+        const m = line.match(/^(.{1,40}?) : /)
+        if (m && !speakerLabels.includes(m[1])) speakerLabels.push(m[1])
+      }
+      // Garde-fou : au-delà d'une vingtaine de labels distincts, ce n'est
+      // plus de la diarisation mais probablement du bruit (texte édité à la
+      // main contenant des ":" en début de ligne) — mieux vaut ne rien
+      // proposer que noyer le formulaire.
+      const renameableLabels = speakerLabels.length <= 20 ? speakerLabels : []
 
       const renameForm =
-        speakerNumbers.length === 0
+        renameableLabels.length === 0
           ? ''
           : `<div class="speaker-rename">
-              <p class="field-hint">Renommer les intervenants :</p>
-              ${speakerNumbers
+              <p class="field-hint">Renommer les intervenants (repasse possible à tout moment si un nom est faux) :</p>
+              ${renameableLabels
                 .map(
-                  (n) => `
+                  (label) => `
                 <div class="speaker-rename-row">
-                  <span>Intervenant ${n} →</span>
-                  <input type="text" class="speaker-rename-input" data-speaker="${n}" placeholder="Nom" />
+                  <span>${escapeHtml(label)} →</span>
+                  <input type="text" class="speaker-rename-input" data-speaker="${escapeHtml(label)}" placeholder="Nom" />
                 </div>`
                 )
                 .join('')}
@@ -1176,7 +1191,6 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
         ? '<audio controls class="meeting-audio-player"></audio>'
         : ''
 
-      const { summaryPart, transcriptPart } = splitSummaryAndTranscript(content)
       const transcriptHtml = transcriptPart
         ? `<h4>Transcript complet</h4><div class="meeting-transcript">${renderTranscriptHtml(transcriptPart, segments)}</div>`
         : ''
@@ -1261,7 +1275,7 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
         body.querySelectorAll<HTMLInputElement>('.speaker-rename-input').forEach((input) => {
           const name = input.value.trim()
           if (!name) return
-          updated = updated.split(`Intervenant ${input.dataset.speaker} :`).join(`${name} :`)
+          updated = updated.split(`${input.dataset.speaker} :`).join(`${name} :`)
         })
         if (updated === rawContent) return
 
@@ -1287,8 +1301,11 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
             return
           }
           for (const [speaker, name] of entries) {
+            // Les suggestions renvoient un numéro brut (Deepgram) ; le
+            // formulaire, lui, affiche le label complet tel qu'il apparaît
+            // dans le transcript ("Intervenant N").
             const input = body.querySelector<HTMLInputElement>(
-              `.speaker-rename-input[data-speaker="${speaker}"]`
+              `.speaker-rename-input[data-speaker="Intervenant ${speaker}"]`
             )
             if (input && !input.value.trim()) input.value = name
           }
