@@ -648,6 +648,42 @@ function escapeHtml(text: string): string {
   return div.innerHTML
 }
 
+// Entoure chaque occurrence de `term` d'un <mark> dans le texte déjà rendu —
+// confirmation visuelle immédiate après une correction de terme, en plus du
+// nombre de remplacements affiché en texte. Marche sur les nœuds texte via
+// TreeWalker plutôt qu'un replace sur innerHTML, pour ne jamais casser le
+// HTML déjà construit (balises, attributs data-start/data-end…).
+function highlightTermInElement(root: HTMLElement, term: string): void {
+  if (!term.trim()) return
+  const pattern = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi')
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  const textNodes: Text[] = []
+  let node: Node | null
+  while ((node = walker.nextNode())) textNodes.push(node as Text)
+
+  for (const textNode of textNodes) {
+    const text = textNode.textContent ?? ''
+    pattern.lastIndex = 0
+    if (!pattern.test(text)) continue
+    pattern.lastIndex = 0
+
+    const fragment = document.createDocumentFragment()
+    let lastIndex = 0
+    let match: RegExpExecArray | null
+    while ((match = pattern.exec(text))) {
+      fragment.appendChild(document.createTextNode(text.slice(lastIndex, match.index)))
+      const mark = document.createElement('mark')
+      mark.className = 'term-correct-highlight'
+      mark.textContent = match[0]
+      fragment.appendChild(mark)
+      lastIndex = match.index + match[0].length
+      if (match[0].length === 0) pattern.lastIndex++
+    }
+    fragment.appendChild(document.createTextNode(text.slice(lastIndex)))
+    textNode.replaceWith(fragment)
+  }
+}
+
 interface HistoryEntry {
   text: string
   provider: string
@@ -939,6 +975,7 @@ async function stopMeeting(): Promise<void> {
   let fullTranscript = meetingSegments.map((s) => `Intervenant ${s.speaker} : ${s.text}`).join('\n')
   const audioBuffer = fullRecordingBlob.size > 0 ? await fullRecordingBlob.arrayBuffer() : undefined
   let finalSegments: TimedSegment[] | undefined
+  let rediarizeFailed = false
 
   // La numérotation des intervenants construite morceau par morceau pendant
   // la réunion (un appel Deepgram indépendant toutes les 3 minutes) n'est pas
@@ -946,8 +983,11 @@ async function stopMeeting(): Promise<void> {
   // complet (maintenant valide de bout en bout, voir meeting-recorder.ts)
   // redonne une numérotation unique et des horodatages exploitables pour la
   // synchronisation audio — comme pour un import de fichier. En cas d'échec
-  // (panne réseau, audio trop long…), on garde simplement le transcript du
-  // direct plutôt que de bloquer l'enregistrement de la réunion.
+  // (panne réseau, limite de débit Deepgram passagère…), on garde le
+  // transcript du direct comme repli plutôt que de bloquer l'enregistrement
+  // de la réunion — mais on le signale (rediarizeFailed) plutôt que de
+  // masquer complètement l'échec : sinon rien n'indique pourquoi le bouton
+  // 🔊 et le surlignage synchronisé manquent sur cette réunion précise.
   if (audioBuffer) {
     meetingResultEl.style.display = 'block'
     meetingResultEl.innerHTML = '<p class="empty">Vérification des intervenants sur l\'enregistrement complet…</p>'
@@ -956,9 +996,11 @@ async function stopMeeting(): Promise<void> {
       if (segments.length > 0) {
         finalSegments = segments
         fullTranscript = segments.map((s) => `Intervenant ${s.speaker} : ${s.text}`).join('\n')
+      } else {
+        rediarizeFailed = true
       }
     } catch {
-      // Le transcript construit en direct (meetingSegments) sert de repli.
+      rediarizeFailed = true
     }
   }
 
@@ -978,6 +1020,11 @@ async function stopMeeting(): Promise<void> {
   meetingResultEl.innerHTML = `
     <div class="meeting-summary">${renderMarkdownLite(summary)}</div>
     <p class="field-hint">Enregistré : ${escapeHtml(savedPath)}</p>
+    ${
+      rediarizeFailed
+        ? '<p class="field-hint">⚠️ La vérification des intervenants sur l\'enregistrement complet a échoué (réseau, limite passagère…) — le bouton 🔊 et le surlignage synchronisé sont indisponibles pour cette réunion. Réessayable depuis la liste des réunions via « 🔁 Réidentifier les intervenants ».</p>'
+        : ''
+    }
     <button class="modify-link" id="meeting-export-now">⬇ Exporter en PDF</button>
     <button class="modify-link" id="meeting-export-email-now">✉️ Envoyer par email</button>
   `
@@ -1229,6 +1276,7 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
             <input type="text" class="term-correct-to" placeholder="Terme correct (ex. QuantStudio)" />
           </div>
           <button class="modify-link term-correct-apply">Remplacer partout</button>
+          <p class="field-hint term-correct-result"></p>
         </div>`
 
       const audioPlayer = audioPath
@@ -1244,6 +1292,7 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
           <button class="modify-link meeting-resummarize">🔁 Régénérer le résumé</button>
           <button class="modify-link meeting-edit-toggle">✏️ Modifier</button>
           <button class="modify-link meeting-undo">↩ Annuler le dernier changement</button>
+          ${audioPath ? '<button class="modify-link meeting-rediarize">🔁 Réidentifier les intervenants</button>' : ''}
           ${audioPath ? '<button class="modify-link meeting-delete-audio">🗑️ Supprimer l\'audio, garder le texte</button>' : ''}
         </div>
         ${audioPlayer}
@@ -1329,6 +1378,34 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
           rawContent = restored
           renderBody()
           statusEl.textContent = 'Dernier changement annulé ✅'
+        } finally {
+          button.disabled = false
+          button.textContent = originalLabel
+        }
+      })
+
+      body.querySelector('.meeting-rediarize')?.addEventListener('click', async (event) => {
+        const button = event.currentTarget as HTMLButtonElement
+        const confirmed = window.confirm(
+          "Repasser l'audio de cette réunion dans la reconnaissance des intervenants ? Le transcript sera remplacé par une nouvelle version avec des numéros cohérents et les horodatages pour le bouton 🔊 — tout renommage déjà appliqué sur les intervenants sera perdu (le résumé n'est pas touché). Utilise « ↩ Annuler le dernier changement » si le résultat ne convient pas."
+        )
+        if (!confirmed) return
+        const originalLabel = button.textContent
+        button.disabled = true
+        button.textContent = '…'
+        try {
+          const result = await window.api.rediarizeSavedMeeting(id)
+          if (!result) {
+            statusEl.textContent = "Aucun intervenant détecté — l'audio de cette réunion n'a pas pu être réanalysé."
+            return
+          }
+          rawContent = result.content
+          segments = result.segments
+          renderBody()
+          statusEl.textContent = 'Intervenants réidentifiés ✅'
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error)
+          statusEl.textContent = `Erreur lors de la réidentification : ${message}`
         } finally {
           button.disabled = false
           button.textContent = originalLabel
@@ -1435,7 +1512,14 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
         rawContent = rawContent.replace(pattern, to)
         await window.api.updateMeetingContent(filePath, rawContent)
         renderBody()
-        statusEl.textContent = `${occurrences} occurrence(s) de « ${from} » remplacée(s) par « ${to} » ✅`
+
+        const message = `${occurrences} occurrence(s) de « ${from} » remplacée(s) par « ${to} » ✅`
+        statusEl.textContent = message
+        const resultEl = body.querySelector<HTMLParagraphElement>('.term-correct-result')
+        if (resultEl) resultEl.textContent = message
+
+        const summaryEl = body.querySelector<HTMLDivElement>('.meeting-summary')
+        if (summaryEl) highlightTermInElement(summaryEl, to)
       })
     }
 

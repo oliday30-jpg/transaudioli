@@ -472,7 +472,18 @@ const html = `<!doctype html>
   occurrences d'un mot mal reconnu (par exemple « QuantiDAR » → « QuantStudio ») dans l'ensemble du
   document — pas besoin de corriger chaque passage un par un. Insensible à la casse (une même erreur peut
   apparaître différemment orthographiée d'un passage à l'autre). Tous ces remplacements sont écrits
-  directement dans le fichier, donc visibles aussi dans un futur export PDF.</p>
+  directement dans le fichier, donc visibles aussi dans un futur export PDF. Le nombre d'occurrences
+  remplacées s'affiche juste sous le bouton, et chaque terme corrigé est surligné dans le résumé et le
+  transcript affichés — confirmation visuelle immédiate de l'endroit où le changement a eu lieu (ce
+  surlignage n'est pas enregistré dans le fichier, juste affiché le temps de vérifier).</p>
+  <p>Pour une réunion enregistrée en direct dont le passage automatique de reconnaissance des intervenants
+  a échoué (panne réseau, limite de débit Deepgram passagère — ça reste rare mais possible) ou qui a été
+  enregistrée avant que ce passage n'existe (avant la v0.19.0), le bouton
+  <b>🔁 Réidentifier les intervenants</b> relance ce passage après coup, à la demande, sur l'audio déjà
+  sauvegardé — avec les mêmes bénéfices qu'au moment de l'enregistrement (numérotation cohérente,
+  horodatages pour le bouton 🔊 et le surlignage synchronisé). Comme il remplace entièrement le transcript,
+  tout renommage d'intervenant déjà appliqué est perdu (le résumé n'est pas touché) ; « ↩ Annuler le
+  dernier changement » permet de revenir en arrière si le résultat ne convient pas.</p>
   <p>Si le résumé automatique a échoué (clé API manquante, panne réseau…), un avertissement visible
   ⚠️ remplace désormais le résumé attendu — auparavant ceci passait inaperçu, laissant juste le transcript
   brut sans explication. Le bouton <b>🔁 Régénérer le résumé</b> relance uniquement la génération du

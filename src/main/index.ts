@@ -908,6 +908,45 @@ ipcMain.handle('meeting:resummarize', async (event, id: number) => {
   return { summary }
 })
 
+// Repasse l'audio déjà sauvegardé d'une réunion dans la diarisation, après
+// coup — utile pour une réunion enregistrée avant que ce second passage
+// n'existe (v0.19.0), ou si le passage automatique a échoué silencieusement
+// à la fin de la réunion (panne réseau, limite de débit Deepgram passagère…).
+// Remplace entièrement le transcript : tout renommage d'intervenant déjà
+// appliqué est perdu (le résumé n'est pas touché) — une sauvegarde permet
+// d'annuler via "↩ Annuler le dernier changement" si le résultat ne convient pas.
+ipcMain.handle('meeting:rediarize-saved', async (_event, id: number) => {
+  const entry = getMeetings().find((m) => m.id === id)
+  if (!entry || !entry.audioPath) return null
+
+  const audio = await readFile(entry.audioPath)
+  const mimeType = guessAudioMimeType(entry.audioPath)
+  const segments = await transcribeMeetingChunk(
+    audio,
+    process.env.DEEPGRAM_API_KEY ?? '',
+    getMeetingLanguage(),
+    getEffectiveListVocabulary(),
+    mimeType
+  )
+  if (segments.length === 0) return null
+
+  const transcript = segments.map((s) => `Intervenant ${s.speaker} : ${s.text}`).join('\n')
+
+  const raw = await readFile(entry.filePath, 'utf-8')
+  const marker = '## Transcript complet\n\n'
+  const markerIndex = raw.indexOf(marker)
+  const head = markerIndex !== -1 ? raw.slice(0, markerIndex + marker.length) : raw
+  const newContent = `${head}${transcript}\n`
+
+  await backupMeetingFile(entry.filePath)
+  await writeFile(entry.filePath, newContent, 'utf-8')
+
+  const segmentsPath = entry.filePath.replace(/\.md$/, '.segments.json')
+  await writeFile(segmentsPath, JSON.stringify(segments), 'utf-8')
+
+  return { content: newContent, segments }
+})
+
 // Aide au renommage des intervenants sans avoir à écouter l'audio (utile en
 // particulier pour un import multi-fichiers, qui n'a pas de lecteur audio) :
 // repère les auto-présentations dans le texte et propose un nom par numéro

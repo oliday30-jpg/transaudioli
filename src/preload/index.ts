@@ -183,6 +183,8 @@ const api = {
     ipcRenderer.invoke('meeting:update-title', { id, title }),
   resummarizeMeeting: (id: number): Promise<{ summary: string } | null> =>
     ipcRenderer.invoke('meeting:resummarize', id),
+  rediarizeSavedMeeting: (id: number): Promise<{ content: string; segments: DiarizedSegment[] } | null> =>
+    ipcRenderer.invoke('meeting:rediarize-saved', id),
   suggestSpeakerNames: (id: number): Promise<Record<string, string>> =>
     ipcRenderer.invoke('meeting:suggest-speaker-names', id),
   getCalendarCandidates: (id: number): Promise<{ subject: string; start: number; end: number }[]> =>
