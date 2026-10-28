@@ -1275,7 +1275,7 @@ function renderMeetingList(entries: MeetingIndexEntry[]): void {
                 <div class="speaker-rename-row">
                   ${
                     audioPath && label in labelFirstStart
-                      ? `<button class="modify-link speaker-listen" data-start="${labelFirstStart[label]}" title="Écouter cet intervenant">🔊</button>`
+                      ? `<button class="modify-link speaker-listen" data-start="${labelFirstStart[label]}" title="Écouter cet intervenant">🔊 Écouter</button>`
                       : ''
                   }
                   <span>${escapeHtml(label)} →</span>
