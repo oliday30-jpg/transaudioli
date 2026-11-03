@@ -71,7 +71,12 @@ const store = new Store<Settings>({
   defaults: {
     shortcutRaw: 'CommandOrControl+R',
     shortcutClean: 'CommandOrControl+Alt+D',
-    shortcutRewrite: 'CommandOrControl+Alt+E',
+    // Pas de Ctrl+Alt+<lettre> : sur un clavier belge/français, AltGr envoie
+    // Ctrl+Alt au niveau de Windows — "Ctrl+Alt+E" est donc indiscernable
+    // d'AltGr+E (le symbole €), ce qui capturait le raccourci à la place de
+    // taper le caractère. Ctrl+Shift+E n'a pas ce problème (AltGr n'implique
+    // jamais Shift).
+    shortcutRewrite: 'CommandOrControl+Shift+E',
     cancelShortcut: 'CommandOrControl+Shift+R',
     shortcutMeeting: 'CommandOrControl+Alt+M',
     shortcutLock: 'CommandOrControl+Alt+L',

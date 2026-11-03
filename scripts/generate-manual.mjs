@@ -230,7 +230,7 @@ const html = `<!doctype html>
     <tr><th>Mode</th><th>Raccourci par défaut</th><th>Effet</th></tr>
     <tr><td><b>Brut</b></td><td class="kbd">Ctrl+R</td><td>Transcription telle quelle, sans retouche.</td></tr>
     <tr><td><b>Nettoyé</b></td><td class="kbd">Ctrl+Alt+D</td><td>Corrige hésitations, ponctuation, tournures orales — le fond ne change pas.</td></tr>
-    <tr><td><b>Réécrit</b></td><td class="kbd">Ctrl+Alt+E</td><td>Reformule et structure ; comprend aussi les commandes vocales (section 4).</td></tr>
+    <tr><td><b>Réécrit</b></td><td class="kbd">Ctrl+Shift+E</td><td>Reformule et structure ; comprend aussi les commandes vocales (section 4).</td></tr>
     <tr><td><b>Annuler</b></td><td class="kbd">Ctrl+Shift+R</td><td>Interrompt l'enregistrement en cours sans rien transcrire.</td></tr>
   </table>
   <p>Fonctionnement : un premier appui démarre l'enregistrement (un discret indicateur apparaît), un
